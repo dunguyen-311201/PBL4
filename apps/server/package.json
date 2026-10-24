@@ -10,6 +10,9 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
   },
+  "dependencies": {
+    "argon2": "^0.45.1"
+  },
   "devDependencies": {
     "@pbl4/config": "workspace:*",
     "@types/node": "^22.0.0",
