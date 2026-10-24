@@ -1,8 +1,12 @@
 import crypto from 'node:crypto';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { UuidGenerator } from './uuid.generator.js';
 
 describe('UuidGenerator', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('generates standard RFC 4122 v4 UUIDs', () => {
     // Arrange
     const generator = new UuidGenerator();
@@ -29,7 +33,5 @@ describe('UuidGenerator', () => {
     // Assert
     expect(randomUuidSpy).toHaveBeenCalledOnce();
     expect(id).toBeDefined();
-
-    randomUuidSpy.mockRestore();
   });
 });

@@ -92,5 +92,11 @@ Mỗi adapter một file `*.test.ts` cạnh file nguồn, theo quy ước `docs/
 - `pnpm --filter @pbl4/server typecheck`
 - `pnpm run check` (tất cả các bước format, lint, typecheck, depcruise, test:coverage đều xanh 100%)
 
+### Cập nhật theo Review T-001
+1. **SHOULD 1 (Spy cleanup)**: Thay thế việc gọi `mockRestore()` thủ công ở cuối test bằng hook `afterEach(() => { vi.restoreAllMocks(); })` trong các file test `random-code.generator.test.ts`, `random-otp.generator.test.ts`, `uuid.generator.test.ts` để tránh rò rỉ mock khi có `expect` thất bại.
+2. **SHOULD 2 (Nguồn tham số Argon2)**: Điều chỉnh chú thích trong `argon2.hasher.ts` từ "OWASP minimum recommendations for Argon2id (RFC 9106)" thành "OWASP Password Storage Cheat Sheet minimum recommendations for Argon2id".
+3. **NIT 3 (Thứ tự dependencies)**: Đưa `dependencies` lên trước `devDependencies` trong `apps/server/package.json`.
+4. **NIT 4 (Chú thích error swallowing)**: Thêm chú thích trong `Argon2Hasher.verify` giải thích việc nuốt lỗi là chủ đích thiết kế để tránh văng ngoại lệ khi hash hỏng.
+
 ### Điều chưa chắc chắn
 - Không có. Toàn bộ tiêu chí nghiệm thu đều đạt và có test chứng minh.

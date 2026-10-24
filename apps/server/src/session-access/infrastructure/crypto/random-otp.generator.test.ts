@@ -1,8 +1,12 @@
 import crypto from 'node:crypto';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RandomOtpGenerator } from './random-otp.generator.js';
 
 describe('RandomOtpGenerator', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('generates 6-digit OTPs matching /^[0-9]{6}$/ over 10 000 iterations', () => {
     // Arrange
     const generator = new RandomOtpGenerator();
@@ -31,8 +35,6 @@ describe('RandomOtpGenerator', () => {
     // Act & Assert: max number 999999 -> "999999"
     randomIntSpy.mockImplementation(() => 999_999);
     expect(generator.next()).toBe('999999');
-
-    randomIntSpy.mockRestore();
   });
 
   it('uses crypto.randomInt and does not use Math.random', () => {
@@ -48,8 +50,5 @@ describe('RandomOtpGenerator', () => {
     expect(otp).toMatch(/^[0-9]{6}$/);
     expect(mathRandomSpy).not.toHaveBeenCalled();
     expect(randomIntSpy).toHaveBeenCalledWith(0, 1_000_000);
-
-    mathRandomSpy.mockRestore();
-    randomIntSpy.mockRestore();
   });
 });

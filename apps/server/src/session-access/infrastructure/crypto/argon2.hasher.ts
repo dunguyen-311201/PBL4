@@ -8,7 +8,7 @@ export interface Argon2Options {
 }
 
 /**
- * OWASP minimum recommendations for Argon2id (RFC 9106):
+ * OWASP Password Storage Cheat Sheet minimum recommendations for Argon2id:
  * - memoryCost: 19456 KiB (19 MiB)
  * - timeCost (iterations): 2
  * - parallelism: 1
@@ -43,6 +43,8 @@ export class Argon2Hasher implements SecretHasher {
     try {
       return await argon2.verify(hash, plain);
     } catch {
+      // Intentionally return false on any error (e.g. malformed hash string)
+      // to avoid throwing unexpected exceptions during authentication checks.
       return false;
     }
   }

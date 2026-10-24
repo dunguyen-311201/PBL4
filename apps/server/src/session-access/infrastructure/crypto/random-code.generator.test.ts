@@ -1,9 +1,13 @@
 import crypto from 'node:crypto';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SessionCode } from '../../domain/value-objects/session-code.js';
 import { RandomCodeGenerator } from './random-code.generator.js';
 
 describe('RandomCodeGenerator', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('generates 9-digit codes starting with 1-9 accepted by SessionCode.of() over 10 000 iterations', () => {
     // Arrange
     const generator = new RandomCodeGenerator();
@@ -30,8 +34,5 @@ describe('RandomCodeGenerator', () => {
     expect(code).toMatch(/^[1-9][0-9]{8}$/);
     expect(mathRandomSpy).not.toHaveBeenCalled();
     expect(randomIntSpy).toHaveBeenCalledWith(100_000_000, 1_000_000_000);
-
-    mathRandomSpy.mockRestore();
-    randomIntSpy.mockRestore();
   });
 });
