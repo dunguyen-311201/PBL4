@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Trạng thái | Draft v0.1 |
+| Trạng thái | v0.2 — đã implement (PR 2.3) |
 | Cập nhật | 2026-10-23 |
 | Liên quan | [00-requirements.md](00-requirements.md) · [01-hld.md](01-hld.md) · ADR-004, ADR-005, ADR-006 |
 
@@ -69,7 +69,7 @@ classDiagram
         +Date activeExpiresAt
         +number version
         +create(id, code, otp, now)$ RemoteSession
-        +requestJoin(otpMatches, viewerIp, now) JoinResult
+        +requestJoin(otpMatches, viewerIp, joinRequestId, now) JoinResult
         +approveJoin(joinRequestId, role, viewerId, now)
         +rejectJoin(joinRequestId, now)
         +regenerateOtp(otp, now)
@@ -136,7 +136,7 @@ Domain không phụ thuộc thư viện hash hay đồng hồ hệ thống: kế
 | `MAX_FAILED_OTP_ATTEMPTS` | 5 | FR-03a |
 | `APPROVAL_TIMEOUT` | 60 giây | Thiết kế (§4.5, D2) |
 | `MAX_ACTIVE_DURATION` | 2 giờ | FR-09a |
-| `EXPIRY_WARNING_BEFORE` | 5 phút | FR-09a |
+| `EXPIRY_WARNING_BEFORE` | 5 phút | FR-09a — nằm ở tầng application, không trong `SessionPolicy` (D5) |
 
 Các hằng số nằm trong một object `SessionPolicy` truyền vào aggregate, để test có thể dùng giá trị nhỏ.
 
@@ -185,6 +185,16 @@ stateDiagram-v2
 - **D3 — Viewer rời đi là kết thúc phiên** (không quay về `WaitingForViewer`). Đơn giản, đúng FR-07; muốn kết nối lại thì Host tạo phiên mới. Mất kết nối mạng không bị coi là rời đi ngay: tầng presentation chờ 15 giây cho kết nối lại rồi mới gọi `terminate` (LLD §6.2).
 - **D4 — Đổi role là thuộc tính của `Viewer`, không phải trạng thái riêng.** Giảm số trạng thái; Observer vẫn ở `Active`.
 - **D5 — Cảnh báo 5 phút trước khi hết hạn là việc của tầng application** (scheduler đọc `activeExpiresAt`), không phải một trạng thái domain.
+- **D6 — `regenerateOtp` gia hạn luôn `waitingExpiresAt`** thêm `WAITING_TTL` tính từ lúc tạo OTP mới. Nếu không, Host tạo OTP mới ở phút 9 sẽ có OTP còn hạn tới phút 19 trong khi phiên hết hạn ở phút 10. *(Chốt khi implement PR 2.3.)*
+
+**Làm rõ khi implement (PR 2.3):**
+- `create` đặt `version = 1`; lần lưu đầu dùng `expectedVersion = 0`.
+- `requestJoin` nhận thêm `joinRequestId` do tầng application sinh (domain không sinh id). Thứ tự kiểm tra: trạng thái → OTP đã dùng → OTP hết hạn → so khớp. OTP đã dùng hoặc hết hạn **không** bị tính là đoán sai. Join thành công đặt lại bộ đếm sai về 0.
+- `terminate` bởi Viewer chỉ hợp lệ khi phiên `Active`; trường hợp khác trả `NoViewer`.
+- `changeRole` sang đúng role hiện tại là no-op: không phát event, không tăng `version`.
+- `approveJoin` sau `decisionDeadline` báo `JoinRequestExpired` nhưng không đổi trạng thái; việc đưa phiên về `WaitingForViewer` thuộc về `checkExpiry` (D2).
+- Khi `checkExpiry` thấy cả `waitingExpiresAt` và `decisionDeadline` đều đã qua, `Expired` được ưu tiên.
+- `SessionPolicy` không chứa `EXPIRY_WARNING_BEFORE` (D5).
 
 ### 4.6 Bảng chuyển trạng thái (dùng để viết test)
 

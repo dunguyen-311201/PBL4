@@ -65,6 +65,7 @@ Vấn đề vệ sinh repo: repo private (link CV báo 404); thư mục `app/` l
 | D3 | Viewer rời đi = kết thúc phiên (mất mạng được chờ 15 giây) | 02-domain-model §4.5, LLD §6.2 |
 | D4 | Controller/Observer là thuộc tính của Viewer, không phải trạng thái | 02-domain-model §4.5 |
 | D5 | Cảnh báo sắp hết hạn do scheduler, không phải trạng thái domain | 02-domain-model §4.5 |
+| D6 | Tạo OTP mới gia hạn luôn cửa sổ chờ của phiên | 02-domain-model §4.5 |
 | — | Mọi thất bại join trả cùng `401 INVALID_CREDENTIALS`; verify giả để chống timing attack | 04-protocol §3.2, LLD §5 |
 | — | Token không chứa role; role kiểm tra với Redis mỗi lệnh → thu hồi tức thì | 04-protocol §2 |
 | — | Vitest cho toàn monorepo | 06-test-strategy §2 |
@@ -97,20 +98,21 @@ Kế hoạch tổng thể 5 tuần: `Documents\JobHunt\Notes\PBL4_PLAN.md`.
 - [x] Tag `v0-legacy-2021` trên máy local.
 - [x] Nhánh tạm `measure/baseline`: thay `robotjs` bằng `@jitsi/robotjs` để chạy được trên Node 14 không cần Visual Studio Build Tools (chỉ đổi dòng `require`, logic giữ nguyên).
 
-- [x] Nhánh `chore/freeze-legacy` (commit local): xoá `app/` (bản sao ở `Documents\PBL4-redesign\os-producer-consumer-java`), chuyển `Client/`, `Server/` vào `legacy/`, thêm `docs/`, `README.md`, `CLAUDE.md`, `CONTRIBUTING.md`, `.gitignore`, `.gitattributes` (LF cho mọi file text).
+- [x] PR #2 `chore/freeze-legacy` — đã merge: xoá `app/` (bản sao ở `Documents\PBL4-redesign\os-producer-consumer-java`), chuyển `Client/`, `Server/` vào `legacy/`, thêm `docs/`, `README.md`, `CLAUDE.md`, `CONTRIBUTING.md`, `.gitignore`, `.gitattributes` (LF cho mọi file text).
 
 **Còn lại của Ngày 1 (cần bạn làm)**
 - [ ] Chạy bản cũ giữa 2 máy (nhánh `measure/baseline`) và điền cột `v0-legacy-2021` trong `benchmark.md`.
-- [ ] Push: `git push origin v0-legacy-2021 chore/freeze-legacy` → mở PR → review → merge.
 - [ ] Public repo; cập nhật link GitHub trong CV và CV Context Pack.
 
-**Tuần 2 (đã commit local, chờ push + PR)**
-- [x] PR 2.1 `chore/monorepo-setup` — pnpm + Turborepo, TypeScript 5.9 strict, ESLint (typescript-eslint strict type-checked), Prettier, Vitest 4 + coverage, `dependency-cruiser` (5 luật: không vòng, domain thuần, application không phụ thuộc tầng ngoài, protocol độc lập, cấm import legacy — đã thử vi phạm và bị chặn), GitHub Actions CI, `pnpm run check` chạy giống CI.
-- [x] PR 2.2 `feat/protocol` — `packages/protocol` theo TDD: 60 contract test, coverage 100%; registry lệnh kèm actor được phép gửi.
+**Tuần 2**
+- [x] PR #3 (2.1) `chore/monorepo-setup` — đã merge — pnpm + Turborepo, TypeScript 5.9 strict, ESLint (typescript-eslint strict type-checked), Prettier, Vitest 4 + coverage, `dependency-cruiser` (5 luật: không vòng, domain thuần, application không phụ thuộc tầng ngoài, protocol độc lập, cấm import legacy — đã thử vi phạm và bị chặn), GitHub Actions CI, `pnpm run check` chạy giống CI.
+- [x] PR #4 (2.2) `feat/protocol` — đã merge — `packages/protocol` theo TDD: 60 contract test, coverage 100%; registry lệnh kèm actor được phép gửi.
+
+- [x] PR 2.3 `feat/session-domain` — `apps/server` với domain Session & Access theo TDD: aggregate `RemoteSession`, value objects, domain events, snapshot cho repository, test data builder. 74 test (20 mục ở 02-domain-model §8 + bảng chuyển trạng thái §4.6 dạng table-driven), coverage 100% dòng / 94.8% nhánh. Chốt thêm D6.
 
 **Tiếp theo**
-1. PR 2.3 — TDD aggregate `RemoteSession` theo 20 test ở 02-domain-model §8 (`apps/server`).
-2. PR 2.4…2.7 — use case, `RedisSessionRepository` + Lua, REST/WS gateway, audit.
+1. PR 2.4 — ports + use case với adapter in-memory (LLD §4–5).
+2. PR 2.5…2.7 — `RedisSessionRepository` + Lua (Testcontainers), REST/WS gateway, audit.
 
 ## 8. Lịch 5 tuần
 
