@@ -1,0 +1,29 @@
+{
+  "name": "pbl4-remote-desktop",
+  "private": true,
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "test:coverage": "turbo run test:coverage",
+    "typecheck": "turbo run typecheck",
+    "lint": "eslint . --max-warnings=0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "depcruise": "depcruise apps packages --config .dependency-cruiser.cjs",
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm depcruise && pnpm test:coverage"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@pbl4/config": "workspace:*",
+    "dependency-cruiser": "^18.7.0",
+    "eslint": "^10.0.0",
+    "prettier": "^3.6.0",
+    "turbo": "^2.5.0",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.72.0"
+  }
+}
