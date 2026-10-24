@@ -114,11 +114,13 @@ Kế hoạch tổng thể 5 tuần: `Documents\JobHunt\Notes\PBL4_PLAN.md`.
 
 - [x] PR #6 (2.4) `feat/session-use-cases` — đã merge — tầng application: 9 port, 8 use case, `withRetry`, kiểm tra actor (I5), chống timing attack khi mã không tồn tại; adapter in-memory + harness cho test. Domain thêm `nextCheckAt()`. 117 test, coverage 99% dòng / 96% nhánh.
 
-- [x] `chore/ai-workflow` — quy trình Claude (kế hoạch, review) + Gemini/Antigravity (thực hiện): `AGENTS.md` dùng chung, `GEMINI.md`, `docs/ai-workflow.md`, task đầu tiên `.ai/tasks/T-001-crypto-adapters.md`.
+- [x] PR #7 `chore/ai-workflow` — quy trình Claude (kế hoạch, review) + Gemini/Antigravity (thực hiện): `AGENTS.md` dùng chung, `GEMINI.md`, `docs/ai-workflow.md`.
+- [x] PR #8 **T-001** (Gemini, Claude review 2 vòng) — `SystemClock`, sinh mã phiên/OTP/UUID bằng `crypto`, `Argon2Hasher` (argon2id, tham số OWASP). 130 test.
+- [x] PR #9 `fix/join-timing-dummy-hash` — phát hiện khi review T-001: mã không tồn tại trả lời nhanh hơn ~700 lần (0.04 ms so với 28 ms), làm lộ mã nào đang có. Sửa bằng hash giả thật do chính hasher tạo; đo lại 23.6 ms so với 23.4 ms.
 
 **Tiếp theo**
-0. T-001 (Gemini) — clock, sinh mã/OTP/id, argon2 hasher; Claude review.
-1. PR 2.5 — `RedisSessionRepository` + Lua script + `RedisDeadlineScheduler` (integration test với Testcontainers).
+0. T-002 (Gemini) — ICE server + credential TURN tạm thời (coturn REST API).
+1. PR 2.5 (Claude, đang làm) — `RedisSessionRepository` + Lua script + `RedisDeadlineScheduler` (integration test với Testcontainers).
 2. PR 2.6…2.7 — NestJS: REST + WS gateway, JWT, argon2, throttler; audit.
 
 ## 8. Lịch 5 tuần

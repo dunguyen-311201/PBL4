@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Trạng thái | in-review |
+| Trạng thái | done |
 | Người làm | Gemini |
 | Nhánh | `gemini/T-001` |
 | Liên quan | `docs/03-lld/session-access.md` §2, §4 · `docs/05-security.md` S1, I3 · FR-01 |
