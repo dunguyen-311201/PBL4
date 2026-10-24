@@ -102,17 +102,20 @@ Kế hoạch tổng thể 5 tuần: `Documents\JobHunt\Notes\PBL4_PLAN.md`.
 
 **Còn lại của Ngày 1 (cần bạn làm)**
 - [ ] Chạy bản cũ giữa 2 máy (nhánh `measure/baseline`) và điền cột `v0-legacy-2021` trong `benchmark.md`.
-- [ ] Public repo; cập nhật link GitHub trong CV và CV Context Pack.
+- [x] Repo đã public.
+- [ ] Cập nhật link GitHub và bullet dự án trong CV, CV Context Pack.
 
 **Tuần 2**
 - [x] PR #3 (2.1) `chore/monorepo-setup` — đã merge — pnpm + Turborepo, TypeScript 5.9 strict, ESLint (typescript-eslint strict type-checked), Prettier, Vitest 4 + coverage, `dependency-cruiser` (5 luật: không vòng, domain thuần, application không phụ thuộc tầng ngoài, protocol độc lập, cấm import legacy — đã thử vi phạm và bị chặn), GitHub Actions CI, `pnpm run check` chạy giống CI.
 - [x] PR #4 (2.2) `feat/protocol` — đã merge — `packages/protocol` theo TDD: 60 contract test, coverage 100%; registry lệnh kèm actor được phép gửi.
 
-- [x] PR 2.3 `feat/session-domain` — `apps/server` với domain Session & Access theo TDD: aggregate `RemoteSession`, value objects, domain events, snapshot cho repository, test data builder. 74 test (20 mục ở 02-domain-model §8 + bảng chuyển trạng thái §4.6 dạng table-driven), coverage 100% dòng / 94.8% nhánh. Chốt thêm D6.
+- [x] PR #5 (2.3) `feat/session-domain` — đã merge — `apps/server` với domain Session & Access theo TDD: aggregate `RemoteSession`, value objects, domain events, snapshot cho repository, test data builder. 74 test (20 mục ở 02-domain-model §8 + bảng chuyển trạng thái §4.6 dạng table-driven), coverage 100% dòng / 94.8% nhánh. Chốt thêm D6.
+
+- [x] PR 2.4 `feat/session-use-cases` — tầng application: 9 port, 8 use case, `withRetry`, kiểm tra actor (I5), chống timing attack khi mã không tồn tại; adapter in-memory + harness cho test. Domain thêm `nextCheckAt()`. 117 test, coverage 99% dòng / 96% nhánh.
 
 **Tiếp theo**
-1. PR 2.4 — ports + use case với adapter in-memory (LLD §4–5).
-2. PR 2.5…2.7 — `RedisSessionRepository` + Lua (Testcontainers), REST/WS gateway, audit.
+1. PR 2.5 — `RedisSessionRepository` + Lua script + `RedisDeadlineScheduler` (integration test với Testcontainers).
+2. PR 2.6…2.7 — NestJS: REST + WS gateway, JWT, argon2, throttler; audit.
 
 ## 8. Lịch 5 tuần
 

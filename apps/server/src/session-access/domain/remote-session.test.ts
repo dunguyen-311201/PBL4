@@ -389,6 +389,34 @@ describe('RemoteSession', () => {
     });
   });
 
+  describe('nextCheckAt', () => {
+    it('is the end of the waiting window while waiting or locked', () => {
+      expect(aSession().build().nextCheckAt()).toEqual(at(10 * MINUTE));
+      expect(aSession().locked().build().nextCheckAt()).toEqual(at(10 * MINUTE));
+    });
+
+    it('is the decision deadline while a join is pending (D2)', () => {
+      expect(aSession().pendingApproval().build().nextCheckAt()).toEqual(at(60 * SECOND));
+    });
+
+    it('is the waiting window if it ends before the decision deadline', () => {
+      const s = aSession()
+        .withPolicy({ waitingTtlMs: 30 * SECOND })
+        .pendingApproval()
+        .build();
+      expect(s.nextCheckAt()).toEqual(at(30 * SECOND));
+    });
+
+    it('is the end of the 2-hour window while active', () => {
+      expect(aSession().active().build().nextCheckAt()).toEqual(at(2 * HOUR));
+    });
+
+    it('is null once the session is closed', () => {
+      expect(aSession().terminated().build().nextCheckAt()).toBeNull();
+      expect(aSession().expired().build().nextCheckAt()).toBeNull();
+    });
+  });
+
   describe('closed sessions (18, I8)', () => {
     const commands = {
       requestJoin: (s: RemoteSession) => {
