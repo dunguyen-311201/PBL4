@@ -94,6 +94,17 @@ describe('RequestJoin', () => {
     },
   );
 
+  it('checks unknown codes against a real hash from the same hasher, so both paths cost the same', async () => {
+    const { h, requestJoin } = await setup();
+    const hashesBefore = h.hasher.hashed.length;
+
+    await requestJoin.execute({ code: '999999999', otp: OTP, viewerIp: IP }).catch(() => undefined);
+    await requestJoin.execute({ code: '888888888', otp: OTP, viewerIp: IP }).catch(() => undefined);
+
+    expect(h.hasher.verified.map((v) => v.hash.startsWith('hashed:'))).toEqual([true, true]);
+    expect(h.hasher.hashed.length - hashesBefore).toBe(1); // computed once, then reused
+  });
+
   it('gives every failure the same message', async () => {
     const { requestJoin } = await setup();
     const wrong = await requestJoin

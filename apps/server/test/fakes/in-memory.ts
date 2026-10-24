@@ -82,7 +82,9 @@ export class InMemorySessionRepository implements SessionRepository {
 /** Not a real hash: good enough to prove the plain OTP is never stored. */
 export class FakeHasher implements SecretHasher {
   readonly verified: { plain: string; hash: string }[] = [];
+  readonly hashed: string[] = [];
   hash(plain: string): Promise<string> {
+    this.hashed.push(plain);
     return Promise.resolve(`hashed:${plain}`);
   }
   verify(plain: string, hash: string): Promise<boolean> {

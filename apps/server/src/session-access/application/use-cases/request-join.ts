@@ -6,8 +6,12 @@ import { InvalidCredentials } from '../errors.js';
 import { commit } from '../support/session-access.js';
 import { withRetry } from '../support/with-retry.js';
 
-/** Verified against when the code is unknown, so every failure costs about the same time. */
-const DUMMY_HASH = 'dummy-hash-for-constant-time-rejection';
+/**
+ * Unknown codes are checked against a real hash made by the same hasher, so that path costs as
+ * much as checking a real OTP. A plain string would be rejected by argon2 in microseconds and
+ * reveal whether a code exists (05-security I4).
+ */
+const DUMMY_SECRET = '000000';
 
 export interface RequestJoinCommand {
   code: string;
@@ -22,6 +26,8 @@ export interface RequestJoinResult {
 }
 
 export class RequestJoin {
+  private dummyHash: Promise<string> | undefined;
+
   constructor(private readonly deps: SessionAccessDeps) {}
 
   async execute(cmd: RequestJoinCommand): Promise<RequestJoinResult> {
@@ -37,7 +43,8 @@ export class RequestJoin {
     const code = parseCode(cmd.code);
     const session = code === null ? null : await deps.repo.findByCode(code);
     if (session === null) {
-      await deps.hasher.verify(cmd.otp, DUMMY_HASH);
+      this.dummyHash ??= deps.hasher.hash(DUMMY_SECRET);
+      await deps.hasher.verify(cmd.otp, await this.dummyHash);
       throw new InvalidCredentials('unknown or malformed session code');
     }
 
