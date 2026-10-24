@@ -84,6 +84,7 @@ Vấn đề vệ sinh repo: repo private (link CV báo 404); thư mục `app/` l
 | [05-security.md](05-security.md) | STRIDE, phân tích số cho OTP, rủi ro chấp nhận, test bảo mật, checklist deploy | v0.1 |
 | [06-test-strategy.md](06-test-strategy.md) | Kim tự tháp 8 tầng, TDD, quy ước test, ma trận truy vết, coverage, CI, checklist thủ công, DoD | v0.1 |
 | [adr/](adr/README.md) | ADR-001…007 + template | Accepted |
+| [ai-workflow.md](ai-workflow.md) | Phân vai Claude / Gemini, vòng task → code → review, định dạng task và review | v0.1 |
 | [benchmark.md](benchmark.md) | Cách đo và bảng kết quả (chưa có số) | Trống |
 | LLD signaling, media, input, host-app | Viết ngay trước Tuần 3–4 | Chưa viết |
 
@@ -111,9 +112,12 @@ Kế hoạch tổng thể 5 tuần: `Documents\JobHunt\Notes\PBL4_PLAN.md`.
 
 - [x] PR #5 (2.3) `feat/session-domain` — đã merge — `apps/server` với domain Session & Access theo TDD: aggregate `RemoteSession`, value objects, domain events, snapshot cho repository, test data builder. 74 test (20 mục ở 02-domain-model §8 + bảng chuyển trạng thái §4.6 dạng table-driven), coverage 100% dòng / 94.8% nhánh. Chốt thêm D6.
 
-- [x] PR 2.4 `feat/session-use-cases` — tầng application: 9 port, 8 use case, `withRetry`, kiểm tra actor (I5), chống timing attack khi mã không tồn tại; adapter in-memory + harness cho test. Domain thêm `nextCheckAt()`. 117 test, coverage 99% dòng / 96% nhánh.
+- [x] PR #6 (2.4) `feat/session-use-cases` — đã merge — tầng application: 9 port, 8 use case, `withRetry`, kiểm tra actor (I5), chống timing attack khi mã không tồn tại; adapter in-memory + harness cho test. Domain thêm `nextCheckAt()`. 117 test, coverage 99% dòng / 96% nhánh.
+
+- [x] `chore/ai-workflow` — quy trình Claude (kế hoạch, review) + Gemini/Antigravity (thực hiện): `AGENTS.md` dùng chung, `GEMINI.md`, `docs/ai-workflow.md`, task đầu tiên `.ai/tasks/T-001-crypto-adapters.md`.
 
 **Tiếp theo**
+0. T-001 (Gemini) — clock, sinh mã/OTP/id, argon2 hasher; Claude review.
 1. PR 2.5 — `RedisSessionRepository` + Lua script + `RedisDeadlineScheduler` (integration test với Testcontainers).
 2. PR 2.6…2.7 — NestJS: REST + WS gateway, JWT, argon2, throttler; audit.
 
