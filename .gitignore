@@ -1,0 +1,16 @@
+node_modules/
+dist/
+build/
+out/
+coverage/
+.turbo/
+*.class
+*.log
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
+
+# Legacy (2021) code is frozen; its lockfiles are not reproducible on current tooling
+legacy/**/package-lock.json
