@@ -318,6 +318,27 @@ export class RemoteSession {
     }
   }
 
+  /**
+   * The earliest moment `checkExpiry` could change something, or null when the session is
+   * closed. The application schedules its next check at this time.
+   */
+  nextCheckAt(): Date | null {
+    switch (this._status) {
+      case 'Terminated':
+      case 'Expired':
+        return null;
+      case 'Active':
+        return this._activeExpiresAt;
+      case 'WaitingForViewer':
+      case 'Locked':
+        return this._waitingExpiresAt;
+      case 'PendingApproval': {
+        const deadline = this._pendingJoin?.decisionDeadline ?? this._waitingExpiresAt;
+        return deadline < this._waitingExpiresAt ? deadline : this._waitingExpiresAt;
+      }
+    }
+  }
+
   pullEvents(): DomainEvent[] {
     const events = this.events;
     this.events = [];

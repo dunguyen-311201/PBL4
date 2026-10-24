@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Trạng thái | Draft v0.1 |
+| Trạng thái | v0.2 — domain + application đã implement (PR 2.3, 2.4) |
 | Cập nhật | 2026-10-23 |
 | Liên quan | [02-domain-model.md](../02-domain-model.md) · [04-protocol.md](../04-protocol.md) · ADR-004, ADR-005, ADR-006 |
 
@@ -150,6 +150,14 @@ async execute(cmd) {
 **Vì sao RequestJoin ném `InvalidCredentials` trước khi verify khi không tìm thấy mã?** Thời gian phản hồi khác nhau có thể làm lộ "mã có tồn tại hay không". Use case vẫn chạy một phép `verify` giả với hash cố định khi không tìm thấy phiên để thời gian phản hồi tương đương (chống timing attack).
 
 `SessionExpiring` là **application event** (không phải domain event) vì nó không làm đổi trạng thái aggregate.
+
+**Điều chỉnh khi implement (PR 2.4):**
+- Lệnh của Host/Viewer **không** nhận `sessionId` riêng: phiên luôn là phiên ghi trong token của người gọi, nên không thể "nhắm" vào phiên khác. Use case chỉ kiểm tra loại actor (`assertHost`, `assertHostOrViewer`).
+- `ApproveJoin` trả luôn `viewerToken` (thay vì để notifier tự cấp), để việc cấp token nằm trong use case và test được.
+- Helper `commit(session, expectedVersion)`: không làm gì nếu `version` không đổi; nếu đổi thì `save` → hẹn `scheduler` theo `session.nextCheckAt()` (hoặc `cancel` khi phiên đã đóng) → `publish`.
+- Domain có thêm `nextCheckAt()`: mốc sớm nhất mà `checkExpiry` có thể đổi trạng thái. Use case không tự tính deadline.
+- `ProcessDueDeadlines.execute(due[])` xử lý từng mốc độc lập và **trả về danh sách lỗi hạ tầng** để scheduler thử lại sau; lỗi nghiệp vụ (phiên đã đóng, id sai) bị bỏ qua.
+- `hostToken` hết hạn sau `WAITING_TTL + MAX_ACTIVE_DURATION`. Hạn chế đã biết: nếu Host tạo OTP mới nhiều lần (D6), phiên có thể sống lâu hơn token — sẽ xử lý bằng cơ chế làm mới token qua WS ở PR gateway.
 
 ### 5.1 Sequence nội bộ — RequestJoin
 
