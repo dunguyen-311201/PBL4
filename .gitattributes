@@ -1,0 +1,7 @@
+# Store text files with LF in the repo and check them out with LF on every OS.
+# Avoids "modified" noise from CRLF/LF on Windows and matches Prettier's default.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary
+*.class binary
