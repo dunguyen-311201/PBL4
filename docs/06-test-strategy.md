@@ -36,6 +36,8 @@ flowchart TB
 | Manual | WebRTC giữa 2 máy thật, mạng khác nhau, TURN, mạng yếu, DPI 125–150% | Checklist §8 | Trước release | 30 phút |
 | Performance | fps, độ trễ, băng thông | Script đo + `getStats` | Tuần 5, trước release | — |
 
+**Test tích hợp** đặt tên `*.int.test.ts` trong `apps/*/test/integration/`, chạy bằng `pnpm test:integration` (không nằm trong `pnpm test` / `pnpm run check` để máy không có Docker vẫn chạy được). Redis lấy từ `REDIS_URL` nếu có (ví dụ `redis-server` cục bộ), không thì Testcontainers khởi động `redis:7-alpine`. Mỗi test dùng một tiền tố khoá ngẫu nhiên nên các file chạy song song trên cùng một Redis. Adapter chỉ được che bởi test tích hợp (hiện là `infrastructure/redis/**`) được loại khỏi ngưỡng coverage của unit test. CI chạy cả hai.
+
 **Một test runner cho cả monorepo:** Vitest (NestJS dùng `unplugin-swc` để hỗ trợ decorator metadata). Lý do: cùng cú pháp, cùng cấu hình coverage, nhanh, chạy được TypeScript trực tiếp.
 
 ## 3. Thiết kế để test được

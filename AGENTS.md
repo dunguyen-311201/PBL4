@@ -24,6 +24,7 @@ Remote desktop: Host App (Electron) · Viewer Web (React) · Signaling API (Nest
 
 ## Lệnh
 Node 22, pnpm qua `corepack enable`: `pnpm i` · `pnpm run check` (format, lint, typecheck, kiến trúc, test + coverage — giống CI) · `pnpm test` · `pnpm build` · `pnpm --filter @pbl4/server test`.
+Test tích hợp (`*.int.test.ts`, cần Redis thật): `pnpm test:integration` — dùng `REDIS_URL` nếu có, không thì Testcontainers (cần Docker).
 Legacy (Node 14.17.1 qua nvm-windows, chỉ trên nhánh `measure/baseline`): `cd Server; npm i; npm start` · `cd Client; npm i; npm start`.
 
 ## Lưu ý
