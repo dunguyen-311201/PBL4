@@ -1,64 +1,66 @@
-# Quy trình phối hợp AI: Claude lập kế hoạch & review, Gemini thực hiện
+# AI workflow: Claude plans & reviews, Gemini implements
 
-Mục tiêu: giao việc nhỏ, đặc tả rõ cho Gemini (Antigravity CLI) để tiết kiệm token của Claude, nhưng vẫn giữ chất lượng bằng review và CI. Người (`dunguyen-311201`) luôn là người merge.
+Goal: hand small, well-specified tasks to Gemini (Antigravity CLI) to save Claude's tokens, while keeping quality through review and CI. A human (`dunguyen-311201`) always merges.
 
-## Vai trò
+## Roles
 
-| Ai | Làm gì | Không làm |
+| Who | Does | Does not |
 |---|---|---|
-| **Claude** | Chia nhỏ việc, viết task, tự làm phần nhạy cảm, review kết quả | Approve/merge |
-| **Gemini** (Antigravity `agy`) | Làm đúng một task: test → code → `pnpm run check` → commit | Đổi thiết kế, sửa ngoài phạm vi, mở PR, merge |
-| **Bạn** | Chạy `agy`, push, mở PR, merge | — |
+| **Claude** | Splits work, writes tasks, does the sensitive parts, reviews results | Approve/merge |
+| **Gemini** (Antigravity `agy`) | Exactly one task: tests → code → `pnpm run check` → commit | Change the design, touch files outside scope, open PRs, merge |
+| **Maintainer** | Runs `agy`, pushes, opens PRs, merges | — |
 
-**Giao cho Gemini:** adapter đơn giản có hợp đồng rõ (port đã có), test bổ sung, tài liệu README cho package, UI theo mockup, refactor nhỏ.
-**Claude giữ:** thiết kế, ADR, domain, concurrency (Lua, scheduler), xác thực/JWT/bảo mật, protocol, mọi thứ cần quyết định.
+**Given to Gemini:** simple adapters with a clear contract (port already exists), extra tests, package READMEs, UI from a mockup, small refactors, translation.
+**Kept by Claude:** design, ADRs, domain, concurrency (Lua, scheduler), authentication/JWT/security, protocol, anything that needs a decision.
 
-## Vòng làm việc
+## The loop
 
 ```mermaid
 sequenceDiagram
     participant C as Claude
-    participant U as Bạn
+    participant U as Maintainer
     participant G as Gemini (agy)
-    C->>C: viết .ai/tasks/T-xxx.md (status: ready)
-    U->>G: git switch -c gemini/T-xxx master; agy "Thực hiện .ai/tasks/T-xxx..."
-    G->>G: test → code → pnpm run check → commit
+    C->>C: write .ai/tasks/T-xxx.md (status: ready)
+    U->>G: git switch -c gemini/T-xxx master; agy "Do .ai/tasks/T-xxx..."
+    G->>G: tests → code → pnpm run check → commit
     U->>C: "review T-xxx"
-    C->>C: diff + chạy CI trên clone sạch + đối chiếu tiêu chí
-    C->>C: viết .ai/reviews/T-xxx.md
-    alt Cần sửa
-        U->>G: agy "Sửa theo .ai/reviews/T-xxx.md"
-    else Đạt
-        U->>U: push, mở PR, merge
+    C->>C: diff + CI on a clean clone + check every criterion
+    C->>C: write .ai/reviews/T-xxx.md
+    alt Changes needed
+        U->>G: agy "Address .ai/reviews/T-xxx.md"
+    else Ready
+        U->>U: push, open PR, merge
     end
 ```
 
-## Lệnh cho bạn
+## Commands for the maintainer
 
 ```powershell
-# một lần
+# once
 irm https://antigravity.google/cli/install.ps1 | iex
-agy            # đăng nhập bằng tài khoản Google (gói sinh viên)
+agy            # sign in with the Google account
 
-# mỗi task
+# per task (create the task branch from the branch that contains the task file)
 git switch master; git pull
-git switch -c gemini/T-001
-agy            # rồi gõ: Thực hiện .ai/tasks/T-001-crypto-adapters.md
+git switch -c gemini/T-005
+agy            # then type: Do .ai/tasks/T-005-translate-core-docs.md
 ```
 
-Nên dùng chế độ tương tác (`agy`) và xem từng thay đổi trước khi cho phép. Chế độ không tương tác (`agy -p "..."`) chặn lệnh shell cho tới khi được cấp quyền, nên Gemini sẽ không tự chạy được `pnpm run check`.
+Prefer interactive mode (`agy`) and review each change before allowing it. Non-interactive mode (`agy -p "..."`) blocks shell commands until they are granted, so Gemini cannot run `pnpm run check` on its own. Start a fresh `agy` session per task; long sessions use up the quota faster.
 
-Sau khi Gemini commit: nhắn Claude **"review T-001"**.
+When Gemini has committed, tell Claude **"review T-005"**.
 
-## Định dạng
+## Formats
 
-- **Task** (`.ai/tasks/T-xxx-<tên>.md`): theo [`TEMPLATE.md`](../.ai/tasks/TEMPLATE.md) — mục tiêu, tài liệu tham chiếu, phạm vi file, dependency được phép, hợp đồng (interface), tiêu chí chấp nhận có thể kiểm, test bắt buộc, ngoài phạm vi.
-- **Review** (`.ai/reviews/T-xxx.md`): kết luận (`READY_FOR_HUMAN` / `CHANGES_REQUESTED`), kết quả CI trên clone sạch, đối chiếu từng tiêu chí, danh sách `MUST` / `SHOULD` / `NIT` kèm file:dòng.
-- Trạng thái task ghi ở đầu file: `ready` → `in-progress` → `in-review` → `done`.
+- **Task** (`.ai/tasks/T-xxx-<name>.md`): follows [`TEMPLATE.md`](../.ai/tasks/TEMPLATE.md) — goal, read-first, file scope, allowed dependencies, contract, checkable acceptance criteria, required tests, out of scope.
+- **Review** (`.ai/reviews/T-xxx.md`): verdict (`READY_FOR_HUMAN` / `CHANGES_REQUESTED`), CI on a clean clone, each criterion checked, `MUST` / `SHOULD` / `NIT` items with file:line.
+- Task status at the top of the file: `ready` → `in-progress` → `in-review` → `done` (or `on-hold`).
+- All task and review files are written in English.
 
-## Claude review những gì
-1. CI đầy đủ trên clone sạch của nhánh (không tin "đã chạy rồi").
-2. Từng tiêu chí chấp nhận trong task — có test chứng minh không.
-3. Diff chỉ nằm trong phạm vi task; không sửa/xoá test cũ; không thêm dependency ngoài danh sách.
-4. Đúng quy tắc `AGENTS.md`: tầng phụ thuộc, không log bí mật, không `any`, đặt tên theo ubiquitous language.
-5. Test có kiểm hành vi thật (không chỉ tăng coverage), có trường hợp lỗi.
+## What Claude checks in a review
+1. Full CI on a clean clone of the branch (never trust "already ran it").
+2. Every acceptance criterion — is there a test or command that proves it?
+3. The diff stays within the task's scope; no existing test changed or removed; no unlisted dependency.
+4. `AGENTS.md` rules: dependency layers, no secrets in logs, no `any`, names follow the ubiquitous language, English only.
+5. Tests check real behaviour (not just coverage) and include failure cases.
+6. For adapters with real I/O or cost (hashing, network, storage): an end-to-end check with the real implementation, not only fakes.

@@ -12,10 +12,11 @@
     "test:integration": "turbo run test:integration",
     "typecheck": "turbo run typecheck",
     "lint": "eslint . --max-warnings=0",
+    "lint:language": "node scripts/check-language.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "depcruise": "depcruise apps packages --config .dependency-cruiser.cjs",
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm depcruise && pnpm test:coverage"
+    "check": "pnpm format:check && pnpm lint && pnpm lint:language && pnpm typecheck && pnpm depcruise && pnpm test:coverage"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -1,19 +1,21 @@
 # GEMINI.md
 
-Đọc `AGENTS.md` trước. Trong repo này bạn là **implementer**: làm đúng một task được giao, không hơn.
+Read `AGENTS.md` first. In this repository you are the **implementer**: do exactly one assigned task, nothing more.
 
-## Khi được giao `.ai/tasks/T-xxx-*.md`
-1. Đọc hết task và các tài liệu nó trỏ tới. Nếu thiếu thông tin hoặc mâu thuẫn với `docs/` → **dừng lại, hỏi**, ghi câu hỏi vào cuối file task, không đoán.
-2. Đảm bảo đang ở nhánh `gemini/T-xxx` (tạo từ `master` nếu chưa có).
-3. Viết test trước, rồi code tối thiểu để test xanh.
-4. Chỉ sửa các file nằm trong mục **Phạm vi** của task. Không đổi `docs/`, `packages/protocol`, `domain/`, cấu hình lint/CI, hay `package.json` gốc nếu task không cho phép.
-5. Chạy `pnpm run check`; chỉ commit khi xanh. Commit message theo Conventional Commits, kết thúc bằng dòng `Task: T-xxx`.
-6. Ghi vào cuối file task mục **Báo cáo của Gemini**: đã làm gì, file nào, lệnh đã chạy, điều chưa chắc chắn.
+## When given `.ai/tasks/T-xxx-*.md`
+1. Read the whole task and every document it points to. If information is missing or contradicts `docs/` → **stop and ask**; write the question at the end of the task file. Do not guess.
+2. Make sure you are on branch `gemini/T-xxx` (create it from `master` if needed).
+3. Write the tests first, then the minimum code to make them pass.
+4. Only touch the files listed under **Scope**. Do not change `docs/`, `packages/protocol`, `domain/`, lint/CI configuration or the root `package.json` unless the task allows it.
+5. Run `pnpm run check`; commit only when it passes. Use Conventional Commits and end the message with a `Task: T-xxx` line.
+6. Fill in **Gemini report** at the end of the task file: what you did, which files, the commands you ran, anything you are unsure about.
 
-## Khi có `.ai/reviews/T-xxx.md`
-Sửa đúng các mục `MUST`; mục `SHOULD` làm nếu nhỏ, còn lại ghi lý do. Commit mới (không amend, không force-push), rồi cập nhật Báo cáo.
+Everything you write — code, comments, commit messages, the report — is in **English** (see `AGENTS.md` › Language).
 
-## Không làm
-- Không tự mở PR, không merge, không push lên `master`.
-- Không xoá hay sửa test có sẵn để làm cho nó xanh.
-- Không thêm dependency ngoài danh sách trong task.
+## When `.ai/reviews/T-xxx.md` exists
+Fix every `MUST` item; do `SHOULD` items if they are small, otherwise explain why not. Make new commits (no amend, no force-push), then update the report.
+
+## Don't
+- Don't open PRs, merge, or push to `master`.
+- Don't delete or weaken existing tests to make them pass.
+- Don't add dependencies that are not listed in the task.

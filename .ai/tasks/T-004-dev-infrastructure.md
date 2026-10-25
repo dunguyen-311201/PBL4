@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Trạng thái | ready |
+| Trạng thái | on-hold |
 | Người làm | Gemini |
 | Nhánh | `gemini/T-004` (tạo từ `master`) |
 | Liên quan | `docs/01-hld.md` §3, §5 (deployment) · `docs/05-security.md` D5, §6 · `docs/03-lld/session-access.md` §9 · ADR-002, ADR-005 |
