@@ -70,7 +70,7 @@ Errors: `429 RATE_LIMITED`, `503 CODE_SPACE_EXHAUSTED` (could not generate uniqu
 |---|---|---|
 | 400 | `INVALID_INPUT` | Invalid format (not 9 digits / 6 digits) |
 | 401 | `INVALID_CREDENTIALS` | Code does not exist, incorrect OTP, OTP consumed/expired, session locked, session occupied |
-| 429 | `RATE_LIMITED` | Exceeded 5 requests/IP/min; includes `Retry-After` header |
+| 429 | `RATE_LIMITED` | Exceeded 5 attempts/IP/min; includes `Retry-After` header |
 
 > Every authentication failure returns the **exact same** `401 INVALID_CREDENTIALS`, preventing an attacker from distinguishing "code does not exist" from "incorrect OTP" or "session locked". The Host still receives detailed information over WS (`session.locked`).
 
@@ -134,7 +134,7 @@ The `pending` socket sends no commands, only listens for events in §4.4.
 
 `iceServers` includes public STUN and system TURN with ephemeral credentials (HMAC following coturn REST API standard, expiring at `activeExpiresAt`).
 
-### 4.5 WebRTC signaling (only when session is Active)
+### 4.5 WebRTC signaling (only when session is `Active`)
 
 | Event | Direction | Payload |
 |---|---|---|
@@ -154,7 +154,7 @@ Server only forwards, does not inspect SDP; limits `sdp` ≤ 64 KB. Sent when se
 | `relay.frame.ack` | viewer → server → host | `{ seq }` | Host only sends a new frame after receiving ack for the previous frame, or after a 1-second timeout (skipping that frame) |
 | `relay.input` | viewer → server → host | `InputEvent` (§5) | Server rejects if Viewer is Observer → `FORBIDDEN` |
 
-## 5. Input events (shared between DataChannel and relay.input)
+## 5. Input events (shared between DataChannel and `relay.input`)
 
 ```ts
 type Button = "left" | "middle" | "right";
@@ -183,7 +183,7 @@ type InputEvent =
 
 Host ignores all events on DataChannel when the current role is Observer (Host receives the new role via `viewer.role.changed` sent concurrently to both Host and Viewer) — the server is not an intermediary for DataChannel, so the Host is where blocking occurs.
 
-## 6. Example zod schemas (in packages/protocol)
+## 6. Example zod schemas (in `packages/protocol`)
 
 ```ts
 export const PROTOCOL_VERSION = "1" as const;
@@ -220,7 +220,7 @@ export type Ack<T> = { ok: true; data: T } | { ok: false; error: { code: ErrorCo
 | `JOIN_REQUEST_EXPIRED` | 409 | Exceeded 60 seconds | `JoinRequestExpired` |
 | `JOIN_ALREADY_PENDING` | 409 | (Host side) Join Request already pending | `JoinAlreadyPending` |
 | `SESSION_OCCUPIED` | 409 | (Host side) session already has a Viewer | `SessionOccupied` |
-| `NO_VIEWER` | 409 | No active Viewer | `NoViewer` |
+| `NO_VIEWER` | 409 | No Viewer yet | `NoViewer` |
 | `SESSION_NOT_ACTIVE` | 409 | Signaling/relay when session is not `Active` | (query) |
 | `SESSION_CLOSED` | 410 | Session has terminated/expired | `SessionClosed` |
 | `CONFLICT` | 409 | Concurrency conflict after retry | `ConcurrencyConflict` |
