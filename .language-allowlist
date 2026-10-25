@@ -7,11 +7,6 @@ docs/00-requirements.md
 docs/01-hld.md
 docs/02-domain-model.md
 
-# T-006 — LLDs and protocol
-docs/03-lld/input-control.md
-docs/03-lld/session-access.md
-docs/04-protocol.md
-
 # T-007 — security, test strategy, ADRs
 docs/05-security.md
 docs/06-test-strategy.md

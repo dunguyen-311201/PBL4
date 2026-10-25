@@ -2,41 +2,41 @@
 
 | | |
 |---|---|
-| Trạng thái | Draft v0.1 |
-| Cập nhật | 2026-10-23 |
-| Phiên bản protocol | `1` |
-| Liên quan | [01-hld.md §4](01-hld.md) · [02-domain-model.md](02-domain-model.md) · [03-lld/session-access.md](03-lld/session-access.md) |
+| Status | Draft v0.1 |
+| Updated | 2026-10-23 |
+| Protocol version | `1` |
+| Related | [01-hld.md §4](01-hld.md) · [02-domain-model.md](02-domain-model.md) · [03-lld/session-access.md](03-lld/session-access.md) |
 
-**Nguồn sự thật:** package `packages/protocol` (zod schema). Tài liệu này mô tả lại schema đó; nếu lệch nhau, code thắng và tài liệu phải được sửa trong cùng PR.
+**Source of truth:** package `packages/protocol` (zod schema). This document describes that schema; if they diverge, code wins and the documentation must be updated in the same PR.
 
-## 1. Quy ước chung
+## 1. General conventions
 
-| Mục | Quy ước |
+| Item | Convention |
 |---|---|
 | Base URL | `https://<host>/v1` · WebSocket: `wss://<host>/session` (Socket.IO namespace `/session`) |
-| Định dạng | JSON UTF-8; thời gian dạng ISO-8601 UTC; id dạng UUID v4 |
-| Tên sự kiện WS | `<đối tượng>.<hành động>` viết thường, ví dụ `join.approve` |
-| Lệnh có phản hồi | Client gửi kèm ack callback; server luôn trả `{ ok: true, data? }` hoặc `{ ok: false, error }` |
-| Lỗi | `{ code: string, message: string }` — `code` ổn định (§7), `message` chỉ để debug |
-| Giới hạn payload | 1 MB (`maxHttpBufferSize`); vượt quá → ngắt kết nối với `PAYLOAD_TOO_LARGE` |
-| Version | Handshake WS gửi `auth.protocolVersion = "1"`; khác version → `connect_error` với `PROTOCOL_VERSION_UNSUPPORTED` |
+| Format | JSON UTF-8; timestamps in ISO-8601 UTC; IDs as UUID v4 |
+| WS event names | `<target>.<action>` lowercase, e.g. `join.approve` |
+| Acknowledged commands | Client includes an ack callback; server always returns `{ ok: true, data? }` or `{ ok: false, error }` |
+| Errors | `{ code: string, message: string }` — `code` is stable (§7), `message` is for debugging only |
+| Payload limit | 1 MB (`maxHttpBufferSize`); exceeded → disconnects with `PAYLOAD_TOO_LARGE` |
+| Version | WS handshake sends `auth.protocolVersion = "1"`; different version → `connect_error` with `PROTOCOL_VERSION_UNSUPPORTED` |
 
-## 2. Token
+## 2. Tokens
 
-| Token | Cấp khi | Claims | Dùng để | Thời hạn |
+| Token | Issued when | Claims | Used for | Expiration |
 |---|---|---|---|---|
-| `hostToken` | `POST /sessions` | `sub=sessionId`, `kind=host` | Kết nối WS với vai trò Host | Đến hết vòng đời tối đa của phiên (WAITING_TTL + 2h) |
-| `pendingToken` | `POST /sessions/join` thành công | `sub=sessionId`, `kind=pending`, `jrid=joinRequestId` | Kết nối WS để chờ quyết định của Host | 60 giây (= APPROVAL_TIMEOUT) |
-| `viewerToken` | Host duyệt (đẩy qua WS) | `sub=sessionId`, `kind=viewer`, `vid=viewerId` | Kết nối WS với vai trò Viewer | Đến `activeExpiresAt` |
+| `hostToken` | `POST /sessions` | `sub=sessionId`, `kind=host` | WS connection with Host role | Until maximum session lifetime ends (WAITING_TTL + 2h) |
+| `pendingToken` | `POST /sessions/join` succeeds | `sub=sessionId`, `kind=pending`, `jrid=joinRequestId` | WS connection to wait for Host decision | 60 seconds (= APPROVAL_TIMEOUT) |
+| `viewerToken` | Host approval (pushed via WS) | `sub=sessionId`, `kind=viewer`, `vid=viewerId` | WS connection with Viewer role | Until `activeExpiresAt` |
 
-- JWT ký HS256 bằng secret trong biến môi trường; client giữ token **trong bộ nhớ**, không ghi localStorage.
-- Token không chứa role Controller/Observer. Mỗi lệnh đều được kiểm tra lại với trạng thái phiên trong Redis, nên khi Host đổi role hoặc kết thúc phiên, hiệu lực là **ngay lập tức** mà không cần thu hồi token.
+- JWT signed with HS256 using an environment variable secret; client holds tokens **in memory**, not in localStorage.
+- Tokens do not contain the Controller/Observer role. Every command is re-validated against the session state in Redis, so when the Host changes a role or terminates a session, the effect is **immediate** without revoking the token.
 
 ## 3. REST API
 
-### 3.1 `POST /v1/sessions` — Host tạo phiên (FR-01)
+### 3.1 `POST /v1/sessions` — Host creates session (FR-01)
 
-Request: không có body.
+Request: empty body.
 
 `201 Created`
 ```json
@@ -49,9 +49,9 @@ Request: không có body.
   "hostToken": "eyJ…"
 }
 ```
-Lỗi: `429 RATE_LIMITED`, `503 CODE_SPACE_EXHAUSTED` (không sinh được mã duy nhất sau N lần thử).
+Errors: `429 RATE_LIMITED`, `503 CODE_SPACE_EXHAUSTED` (could not generate unique code after N attempts).
 
-### 3.2 `POST /v1/sessions/join` — Viewer xin tham gia (FR-03)
+### 3.2 `POST /v1/sessions/join` — Viewer requests to join (FR-03)
 
 ```json
 { "code": "482915307", "otp": "093184" }
@@ -66,20 +66,20 @@ Lỗi: `429 RATE_LIMITED`, `503 CODE_SPACE_EXHAUSTED` (không sinh được mã 
 }
 ```
 
-| HTTP | `code` | Khi nào |
+| HTTP | `code` | When |
 |---|---|---|
-| 400 | `INVALID_INPUT` | Sai định dạng (không phải 9 số / 6 số) |
-| 401 | `INVALID_CREDENTIALS` | Mã không tồn tại, OTP sai, OTP đã dùng/hết hạn, phiên bị khoá, phiên đang bận |
-| 429 | `RATE_LIMITED` | Quá 5 lần/IP/phút; kèm header `Retry-After` |
+| 400 | `INVALID_INPUT` | Invalid format (not 9 digits / 6 digits) |
+| 401 | `INVALID_CREDENTIALS` | Code does not exist, incorrect OTP, OTP consumed/expired, session locked, session occupied |
+| 429 | `RATE_LIMITED` | Exceeded 5 requests/IP/min; includes `Retry-After` header |
 
-> Mọi thất bại xác thực đều trả **cùng một** `401 INVALID_CREDENTIALS`, để người dò mã không phân biệt được "mã không tồn tại" với "OTP sai" hay "phiên bị khoá". Host vẫn nhận thông tin chi tiết qua WS (`session.locked`).
+> Every authentication failure returns the **exact same** `401 INVALID_CREDENTIALS`, preventing an attacker from distinguishing "code does not exist" from "incorrect OTP" or "session locked". The Host still receives detailed information over WS (`session.locked`).
 
 ### 3.3 `GET /v1/health`
-`200 { "status": "ok", "redis": "ok" }` — dùng cho load balancer và docker healthcheck.
+`200 { "status": "ok", "redis": "ok" }` — used for load balancers and docker health checks.
 
 ## 4. WebSocket — namespace `/session`
 
-### 4.1 Kết nối
+### 4.1 Connection
 
 ```ts
 io("wss://<host>/session", {
@@ -88,7 +88,7 @@ io("wss://<host>/session", {
 });
 ```
 
-Server xác thực trong middleware handshake, gắn `principal = { kind, sessionId, viewerId?, joinRequestId? }` vào socket và cho vào room:
+Server authenticates during handshake middleware, attaches `principal = { kind, sessionId, viewerId?, joinRequestId? }` to the socket, and joins rooms:
 
 | kind | Room |
 |---|---|
@@ -96,12 +96,12 @@ Server xác thực trong middleware handshake, gắn `principal = { kind, sessio
 | pending | `jr:{joinRequestId}` |
 | viewer | `s:{sessionId}:viewer` |
 
-Lỗi `connect_error.data.code`: `UNAUTHORIZED`, `PROTOCOL_VERSION_UNSUPPORTED`, `SESSION_CLOSED`.
-Mỗi phiên chỉ giữ **một socket Host và một socket Viewer**; socket mới cùng vai trò sẽ thay socket cũ (socket cũ nhận `session.replaced` rồi bị ngắt).
+Errors in `connect_error.data.code`: `UNAUTHORIZED`, `PROTOCOL_VERSION_UNSUPPORTED`, `SESSION_CLOSED`.
+Each session maintains **only one Host socket and one Viewer socket**; a new socket with the same role replaces the existing socket (the old socket receives `session.replaced` and is disconnected).
 
-### 4.2 Lệnh của Host (client → server, có ack)
+### 4.2 Host commands (client → server, with ack)
 
-| Sự kiện | Payload | `data` khi ok | Lỗi | FR |
+| Event | Payload | `data` on success | Errors | FR |
 |---|---|---|---|---|
 | `session.otp.regenerate` | `{}` | `{ otp, otpExpiresAt }` | `JOIN_ALREADY_PENDING`, `SESSION_OCCUPIED`, `SESSION_CLOSED` | FR-02, FR-03a |
 | `join.approve` | `{ joinRequestId, role: "controller" \| "observer" }` | `{ viewerId, activeExpiresAt }` | `NO_PENDING_JOIN`, `JOIN_REQUEST_EXPIRED`, `SESSION_CLOSED` | FR-04, FR-05 |
@@ -109,17 +109,17 @@ Mỗi phiên chỉ giữ **một socket Host và một socket Viewer**; socket m
 | `viewer.role.change` | `{ role }` | `{ role }` | `NO_VIEWER`, `SESSION_CLOSED` | FR-06, FR-24 |
 | `session.terminate` | `{ reason?: string }` | `{}` | `SESSION_CLOSED` | FR-07 |
 
-### 4.3 Lệnh của Viewer (client → server, có ack)
+### 4.3 Viewer commands (client → server, with ack)
 
-| Sự kiện | Payload | Lỗi | FR |
+| Event | Payload | Errors | FR |
 |---|---|---|---|
 | `session.terminate` | `{ reason?: string }` | `SESSION_CLOSED` | FR-07 |
 
-Socket `pending` không gửi lệnh nào, chỉ chờ sự kiện ở §4.4.
+The `pending` socket sends no commands, only listens for events in §4.4.
 
-### 4.4 Sự kiện server → client
+### 4.4 Server → client events
 
-| Sự kiện | Gửi tới | Payload |
+| Event | Sent to | Payload |
 |---|---|---|
 | `join.requested` | host | `{ joinRequestId, viewerIp, decisionDeadline }` |
 | `join.approved` | pending | `{ viewerToken, viewerId, role, activeExpiresAt, iceServers: RTCIceServer[] }` |
@@ -127,34 +127,34 @@ Socket `pending` không gửi lệnh nào, chỉ chờ sự kiện ở §4.4.
 | `session.locked` | host | `{ failedAttempts }` |
 | `viewer.connected` / `viewer.disconnected` | host | `{ viewerId }` |
 | `viewer.role.changed` | viewer | `{ role }` |
-| `session.expiring` | host, viewer | `{ expiresAt }` (5 phút trước hạn) |
+| `session.expiring` | host, viewer | `{ expiresAt }` (5 minutes before deadline) |
 | `session.terminated` | host, viewer | `{ by: "host" \| "viewer", reason? }` |
 | `session.expired` | host, viewer, pending | `{}` |
-| `session.replaced` | socket cũ | `{}` |
+| `session.replaced` | old socket | `{}` |
 
-`iceServers` gồm STUN công khai và TURN của hệ thống với credential tạm thời (HMAC theo chuẩn coturn REST API, hạn bằng `activeExpiresAt`).
+`iceServers` includes public STUN and system TURN with ephemeral credentials (HMAC following coturn REST API standard, expiring at `activeExpiresAt`).
 
-### 4.5 Signaling WebRTC (chỉ khi phiên `Active`)
+### 4.5 WebRTC signaling (only when session is Active)
 
-| Sự kiện | Hướng | Payload |
+| Event | Direction | Payload |
 |---|---|---|
 | `rtc.offer` | host → server → viewer | `{ sdp: string }` |
 | `rtc.answer` | viewer → server → host | `{ sdp: string }` |
-| `rtc.ice` | hai chiều | `{ candidate: RTCIceCandidateInit \| null }` (`null` = end-of-candidates) |
+| `rtc.ice` | bidirectional | `{ candidate: RTCIceCandidateInit \| null }` (`null` = end-of-candidates) |
 | `media.fallback` | viewer → server → host | `{ reason: "ice_failed" \| "timeout" \| "manual" }` |
 | `media.mode` | host → server → viewer | `{ mode: "webrtc" \| "relay" }` |
 
-Server chỉ chuyển tiếp, không đọc SDP; giới hạn `sdp` ≤ 64 KB. Gửi khi phiên không `Active` → ack `SESSION_NOT_ACTIVE`.
+Server only forwards, does not inspect SDP; limits `sdp` ≤ 64 KB. Sent when session is not `Active` → ack `SESSION_NOT_ACTIVE`.
 
 ### 4.6 Fallback Relay
 
-| Sự kiện | Hướng | Payload | Ghi chú |
+| Event | Direction | Payload | Notes |
 |---|---|---|---|
-| `relay.frame` | host → server → viewer | `(meta: { seq, width, height, ts }, jpeg: Buffer)` | Binary attachment của Socket.IO |
-| `relay.frame.ack` | viewer → server → host | `{ seq }` | Host chỉ gửi frame mới sau khi nhận ack frame trước, hoặc sau 1 giây timeout (bỏ qua frame đó) |
-| `relay.input` | viewer → server → host | `InputEvent` (§5) | Server từ chối nếu Viewer là Observer → `FORBIDDEN` |
+| `relay.frame` | host → server → viewer | `(meta: { seq, width, height, ts }, jpeg: Buffer)` | Socket.IO binary attachment |
+| `relay.frame.ack` | viewer → server → host | `{ seq }` | Host only sends a new frame after receiving ack for the previous frame, or after a 1-second timeout (skipping that frame) |
+| `relay.input` | viewer → server → host | `InputEvent` (§5) | Server rejects if Viewer is Observer → `FORBIDDEN` |
 
-## 5. Input events (dùng chung cho DataChannel và `relay.input`)
+## 5. Input events (shared between DataChannel and relay.input)
 
 ```ts
 type Button = "left" | "middle" | "right";
@@ -165,25 +165,25 @@ type InputEvent =
   | { t: "pd"; b: Button; x: number; y: number }               // pointer down
   | { t: "pu"; b: Button; x: number; y: number }               // pointer up
   | { t: "dc"; b: Button; x: number; y: number }               // double click
-  | { t: "wh"; dx: number; dy: number }                        // wheel (pixel delta, đã giới hạn ±1200)
+  | { t: "wh"; dx: number; dy: number }                        // wheel (pixel delta, clamped to ±1200)
   | { t: "kd"; key: string; code: string; mods: Modifiers }    // key down
   | { t: "ku"; key: string; code: string; mods: Modifiers };   // key up
 ```
 
-- Toạ độ luôn **chuẩn hoá 0..1** theo khung hình đang hiển thị; Host tự quy đổi theo độ phân giải và DPI thật (FR-22).
-- Gửi cả `key` (ký tự logic) và `code` (phím vật lý); Host ưu tiên `code` cho phím điều khiển và `key` cho ký tự, bảng ánh xạ nằm trong LLD input-control.
-- Tên trường ngắn vì `pm` có thể gửi ~60 lần/giây.
+- Coordinates are always **normalized 0..1** relative to the currently displayed frame; the Host converts to real resolution and DPI (FR-22).
+- Sends both `key` (logical character) and `code` (physical key); Host prioritizes `code` for control keys and `key` for characters; mapping table is in the input-control LLD.
+- Field names are short because `pm` may be sent ~60 times/second.
 
 ### 5.1 RTCDataChannel
 
-| Kênh | Cấu hình | Mang sự kiện |
+| Channel | Configuration | Carries events |
 |---|---|---|
 | `input` | `ordered: true`, reliable | `pd`, `pu`, `dc`, `wh`, `kd`, `ku` |
-| `input-pointer` | `ordered: false`, `maxRetransmits: 0` | `pm` (mất gói thì bỏ, chỉ vị trí mới nhất có ý nghĩa) |
+| `input-pointer` | `ordered: false`, `maxRetransmits: 0` | `pm` (dropped packets discarded, only the latest position is meaningful) |
 
-Host bỏ qua mọi sự kiện trên DataChannel khi role hiện tại là Observer (Host nhận role mới qua `viewer.role.changed` gửi song song cho cả Host) — server không đứng giữa DataChannel nên Host là nơi chặn.
+Host ignores all events on DataChannel when the current role is Observer (Host receives the new role via `viewer.role.changed` sent concurrently to both Host and Viewer) — the server is not an intermediary for DataChannel, so the Host is where blocking occurs.
 
-## 6. Ví dụ schema zod (trong `packages/protocol`)
+## 6. Example zod schemas (in packages/protocol)
 
 ```ts
 export const PROTOCOL_VERSION = "1" as const;
@@ -201,36 +201,36 @@ export const JoinApprovePayload = z.object({
 const unit = z.number().min(0).max(1);
 export const InputEvent = z.discriminatedUnion("t", [
   z.object({ t: z.literal("pm"), x: unit, y: unit }),
-  // … các biến thể còn lại như §5
+  // … remaining variants as in §5
 ]);
 
 export type Ack<T> = { ok: true; data: T } | { ok: false; error: { code: ErrorCode; message: string } };
 ```
 
-## 7. Mã lỗi
+## 7. Error codes
 
-| `code` | HTTP | Nghĩa | Nguồn domain error |
+| `code` | HTTP | Meaning | Domain error source |
 |---|---|---|---|
-| `INVALID_INPUT` | 400 | Payload sai schema | (validation) |
-| `INVALID_CREDENTIALS` | 401 | Join thất bại (mọi lý do) | `OtpMismatch`, `OtpExpired`, `OtpConsumed`, `SessionLocked`, `SessionOccupied`, `JoinAlreadyPending`, không tìm thấy mã |
-| `UNAUTHORIZED` | 401 | Token thiếu/sai/hết hạn | (auth) |
-| `FORBIDDEN` | 403 | Đúng phiên nhưng sai vai trò (Viewer gọi lệnh Host, Observer gửi input) | (guard) |
-| `RATE_LIMITED` | 429 | Vượt rate limit | (throttler) |
-| `NO_PENDING_JOIN` | 409 | Không có Join Request khớp | `NoPendingJoin` |
-| `JOIN_REQUEST_EXPIRED` | 409 | Quá 60 giây | `JoinRequestExpired` |
-| `JOIN_ALREADY_PENDING` | 409 | (phía Host) đang có Join Request chờ | `JoinAlreadyPending` |
-| `SESSION_OCCUPIED` | 409 | (phía Host) phiên đã có Viewer | `SessionOccupied` |
-| `NO_VIEWER` | 409 | Chưa có Viewer | `NoViewer` |
-| `SESSION_NOT_ACTIVE` | 409 | Signaling/relay khi phiên chưa `Active` | (query) |
-| `SESSION_CLOSED` | 410 | Phiên đã kết thúc/hết hạn | `SessionClosed` |
-| `CONFLICT` | 409 | Xung đột đồng thời sau khi đã thử lại | `ConcurrencyConflict` |
-| `PAYLOAD_TOO_LARGE` | 413 | Vượt giới hạn kích thước | (transport) |
-| `PROTOCOL_VERSION_UNSUPPORTED` | — | Sai `protocolVersion` | (handshake) |
-| `CODE_SPACE_EXHAUSTED` | 503 | Không sinh được mã duy nhất | (application) |
-| `INTERNAL` | 500 | Lỗi không mong muốn (đã log kèm `requestId`) | — |
+| `INVALID_INPUT` | 400 | Payload violates schema | (validation) |
+| `INVALID_CREDENTIALS` | 401 | Join failed (all reasons) | `OtpMismatch`, `OtpExpired`, `OtpConsumed`, `SessionLocked`, `SessionOccupied`, `JoinAlreadyPending`, code not found |
+| `UNAUTHORIZED` | 401 | Missing/invalid/expired token | (auth) |
+| `FORBIDDEN` | 403 | Correct session but wrong role (Viewer calling Host command, Observer sending input) | (guard) |
+| `RATE_LIMITED` | 429 | Exceeded rate limit | (throttler) |
+| `NO_PENDING_JOIN` | 409 | No matching Join Request | `NoPendingJoin` |
+| `JOIN_REQUEST_EXPIRED` | 409 | Exceeded 60 seconds | `JoinRequestExpired` |
+| `JOIN_ALREADY_PENDING` | 409 | (Host side) Join Request already pending | `JoinAlreadyPending` |
+| `SESSION_OCCUPIED` | 409 | (Host side) session already has a Viewer | `SessionOccupied` |
+| `NO_VIEWER` | 409 | No active Viewer | `NoViewer` |
+| `SESSION_NOT_ACTIVE` | 409 | Signaling/relay when session is not `Active` | (query) |
+| `SESSION_CLOSED` | 410 | Session has terminated/expired | `SessionClosed` |
+| `CONFLICT` | 409 | Concurrency conflict after retry | `ConcurrencyConflict` |
+| `PAYLOAD_TOO_LARGE` | 413 | Exceeded payload size limit | (transport) |
+| `PROTOCOL_VERSION_UNSUPPORTED` | — | Invalid `protocolVersion` | (handshake) |
+| `CODE_SPACE_EXHAUSTED` | 503 | Failed to generate unique code | (application) |
+| `INTERNAL` | 500 | Unexpected error (logged with `requestId`) | — |
 
-## 8. Hợp đồng được kiểm thử thế nào
+## 8. How the contract is tested
 
-- **Contract test** trong `packages/protocol`: mỗi schema có mẫu hợp lệ và không hợp lệ.
-- Server validate mọi payload vào bằng schema (pipe/guard); client validate mọi payload nhận về ở chế độ dev.
-- E2E test của gateway dùng chính type từ `packages/protocol`, nên đổi schema mà quên sửa một bên sẽ lỗi typecheck.
+- **Contract tests** in `packages/protocol`: every schema has valid and invalid fixtures.
+- Server validates all incoming payloads with schemas (pipe/guard); client validates all received payloads in dev mode.
+- Gateway E2E tests use types directly from `packages/protocol`, so schema changes that miss one side will fail typecheck.

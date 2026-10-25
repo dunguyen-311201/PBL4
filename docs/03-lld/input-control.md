@@ -2,33 +2,33 @@
 
 | | |
 |---|---|
-| Trạng thái | v0.1 |
-| Cập nhật | 2026-10-25 |
-| Liên quan | FR-20…FR-24 · L1–L4, L10 (00-requirements §8) · 04-protocol §5 · 05-security E2, T2 · ADR-002, ADR-006, ADR-007 · 06-test-strategy §3 |
+| Status | v0.1 |
+| Updated | 2026-10-25 |
+| Related | FR-20…FR-24 · L1–L4, L10 (00-requirements §8) · 04-protocol §5 · 05-security E2, T2 · ADR-002, ADR-006, ADR-007 · 06-test-strategy §3 |
 
-## 1. Trách nhiệm
+## 1. Responsibilities
 
-Biến một `InputEvent` (04-protocol §5) mà Viewer gửi tới thành danh sách **hành động máy** (`HostAction`) để Host thực thi. Phần này là TypeScript thuần trong `packages/host-core`; nó **không** gọi robotjs, Electron hay đọc màn hình. Adapter trong `apps/host` (Tuần 3) nhận `HostAction` và gọi `@jitsi/robotjs`.
+Convert an `InputEvent` (04-protocol §5) sent by the Viewer into a list of **machine actions** (`HostAction`) for the Host to execute. This part is pure TypeScript in `packages/host-core`; it does **not** call robotjs, Electron, or read the screen. The adapter in `apps/host` (Week 3) receives `HostAction` and calls `@jitsi/robotjs`.
 
-Tách như vậy để: (1) unit test toàn bộ logic mà không cần Electron (06-test-strategy §3); (2) dùng lại trong fake host chạy trên trình duyệt cho Playwright; (3) giữ chỗ chặn Observer ở đúng một nơi (05-security E2 — DataChannel không đi qua server).
+Separated this way to: (1) unit test the entire logic without Electron (06-test-strategy §3); (2) reuse in a fake host running in the browser for Playwright; (3) keep the Observer blocking logic in exactly one place (05-security E2 — DataChannel does not pass through the server).
 
-Không làm: chụp màn hình, WebRTC, gọi robotjs, nhiều màn hình (ngoài phạm vi v1).
+Does not do: screen capture, WebRTC, calling robotjs, multi-monitor (out of scope for v1).
 
-## 2. Cấu trúc
+## 2. Structure
 
 ```
 packages/host-core/
 ├─ src/
 │  ├─ geometry.ts        # ScreenGeometry, toScreenPoint()
-│  ├─ keymap.ts          # KeyboardEvent.code → tên phím của backend
+│  ├─ keymap.ts          # KeyboardEvent.code → backend key name
 │  ├─ host-action.ts     # union HostAction
 │  ├─ input-mapper.ts    # mapInput(event, context) → HostAction[]
-│  ├─ pressed-keys.ts    # theo dõi phím/nút đang giữ, releaseAll()
+│  ├─ pressed-keys.ts    # tracks pressed keys/buttons, releaseAll()
 │  └─ index.ts
-└─ package.json          # phụ thuộc @pbl4/protocol (chỉ type + schema)
+└─ package.json          # depends on @pbl4/protocol (type + schema only)
 ```
 
-## 3. Hợp đồng
+## 3. Contract
 
 ```ts
 import type { InputEvent } from '@pbl4/protocol';
@@ -36,7 +36,7 @@ import type { InputEvent } from '@pbl4/protocol';
 export type Role = 'controller' | 'observer';
 export type MouseButton = 'left' | 'middle' | 'right';
 
-/** Kích thước màn hình theo đúng hệ toạ độ mà backend input dùng (adapter tự tính, gồm DPI). */
+/** Screen dimensions in the exact coordinate system used by the input backend (calculated by the adapter, including DPI). */
 export interface ScreenGeometry { readonly width: number; readonly height: number }
 
 export type HostAction =
@@ -54,74 +54,74 @@ export interface MapContext {
 export function mapInput(event: InputEvent, ctx: MapContext): HostAction[];
 ```
 
-## 4. Quy tắc
+## 4. Rules
 
-### 4.1 Vai trò (FR-23, E2)
-`role === 'observer'` → trả `[]` cho **mọi** sự kiện. Đây là lớp chặn thứ hai sau server (relay); với DataChannel nó là lớp duy nhất.
+### 4.1 Role (FR-23, E2)
+`role === 'observer'` → returns `[]` for **all** events. This is the second blocking layer after the server (relay); for DataChannel it is the only layer.
 
-### 4.2 Toạ độ (FR-22, sửa L3)
-- Đầu vào `x, y ∈ [0, 1]` theo khung hình Viewer đang hiển thị (đã được schema đảm bảo).
-- `toScreenPoint(x, y, screen) = { x: round(x × (width − 1)), y: round(y × (height − 1)) }` → `0 ≤ x ≤ width−1`, `0 ≤ y ≤ height−1`, luôn là số nguyên.
-- Không có hằng số hard-code kiểu `*4/3` của bản 2021. DPI do adapter xử lý khi tạo `ScreenGeometry`.
-- `width` hoặc `height` < 1 → `mapInput` ném `RangeError` (cấu hình sai, không phải input sai).
+### 4.2 Coordinates (FR-22, fixes L3)
+- Input `x, y ∈ [0, 1]` relative to the frame displayed by the Viewer (guaranteed by the schema).
+- `toScreenPoint(x, y, screen) = { x: round(x × (width − 1)), y: round(y × (height − 1)) }` → `0 ≤ x ≤ width−1`, `0 ≤ y ≤ height−1`, always an integer.
+- No hard-coded constants like `*4/3` from the 2021 version. DPI is handled by the adapter when creating `ScreenGeometry`.
+- `width` or `height` < 1 → `mapInput` throws `RangeError` (misconfiguration, not bad input).
 
-### 4.3 Chuột (FR-20, sửa L4)
+### 4.3 Mouse (FR-20, fixes L4)
 
-| `t` | Hành động |
+| `t` | Action |
 |---|---|
 | `pm` | `[move]` |
-| `pd` | `[move, button down]` — di chuột tới điểm trước để kéo thả bắt đầu đúng chỗ |
+| `pd` | `[move, button down]` — moves mouse to the point first so drag-and-drop starts at the right place |
 | `pu` | `[move, button up]` |
 | `dc` | `[move, doubleClick]` |
-| `wh` | `[scroll {dx, dy}]` — giữ nguyên quy ước trình duyệt (dy > 0 = cuộn xuống), adapter tự đổi đơn vị và chiều theo nền tảng |
+| `wh` | `[scroll {dx, dy}]` — preserves browser conventions (dy > 0 = scroll down), adapter converts units and direction per platform |
 
-Nút giữa là `middle`, không bị đổi thành trái như bản 2021.
+The middle button is `middle`, not changed to left like in the 2021 version.
 
-### 4.4 Bàn phím (FR-21, sửa L1, L2)
-- Dùng `code` (phím **vật lý**, không phụ thuộc bố cục bàn phím), **không** dùng `key`. Ký tự cuối cùng do bố cục bàn phím của Host quyết định; nhờ vậy `Shift` + `Digit1` ra `!` mà không phải ánh xạ ký tự đặc biệt.
-- `kd` → `key down`, `ku` → `key up`, cho **mọi** phím (bản 2021 chỉ có keyup cho phím thường — L1).
-- `mods` trong sự kiện **bị bỏ qua**: phím bổ trợ đã được gửi thành `kd`/`ku` riêng; dùng thêm `mods` sẽ nhấn hai lần.
-- `code` không có trong bảng → `[]` (bỏ qua, không ném lỗi).
+### 4.4 Keyboard (FR-21, fixes L1, L2)
+- Use `code` (**physical** key, keyboard-layout agnostic), **not** `key`. The final character is determined by the Host's keyboard layout; thus `Shift` + `Digit1` produces `!` without special character mapping.
+- `kd` → `key down`, `ku` → `key up`, for **all** keys (the 2021 version only had keyup for normal keys — L1).
+- `mods` in the event **is ignored**: modifier keys are already sent as separate `kd`/`ku` events; using `mods` additionally would press twice.
+- `code` not in the table → `[]` (ignored, no error thrown).
 
-**Bảng ánh xạ `code` → tên phím** (tên theo `@jitsi/robotjs`):
+**Mapping table from `code` → key name** (names per `@jitsi/robotjs`):
 
-| Nhóm | `code` | Tên phím |
+| Group | `code` | Key name |
 |---|---|---|
-| Chữ | `KeyA` … `KeyZ` | `a` … `z` |
-| Số | `Digit0` … `Digit9` | `0` … `9` |
+| Letters | `KeyA` … `KeyZ` | `a` … `z` |
+| Digits | `Digit0` … `Digit9` | `0` … `9` |
 | Numpad | `Numpad0` … `Numpad9` | `numpad_0` … `numpad_9` |
-| Chức năng | `F1` … `F12` | `f1` … `f12` |
-| Điều hướng | `ArrowUp` `ArrowDown` `ArrowLeft` `ArrowRight` | `up` `down` `left` `right` |
+| Function | `F1` … `F12` | `f1` … `f12` |
+| Navigation | `ArrowUp` `ArrowDown` `ArrowLeft` `ArrowRight` | `up` `down` `left` `right` |
 | | `Home` `End` `PageUp` `PageDown` | `home` `end` `pageup` `pagedown` |
-| Soạn thảo | `Enter` `NumpadEnter` `Backspace` `Delete` `Insert` `Tab` `Escape` `Space` | `enter` `enter` `backspace` `delete` `insert` `tab` `escape` `space` |
-| Bổ trợ | `ShiftLeft` `ShiftRight` | `shift` `right_shift` |
+| Editing | `Enter` `NumpadEnter` `Backspace` `Delete` `Insert` `Tab` `Escape` `Space` | `enter` `enter` `backspace` `delete` `insert` `tab` `escape` `space` |
+| Modifiers | `ShiftLeft` `ShiftRight` | `shift` `right_shift` |
 | | `ControlLeft` `ControlRight` | `control` `right_control` |
 | | `AltLeft` `AltRight` | `alt` `right_alt` |
 | | `MetaLeft` `MetaRight` | `command` `command` |
-| Dấu | `Minus` `Equal` `BracketLeft` `BracketRight` `Backslash` | `-` `=` `[` `]` `\` |
+| Punctuation | `Minus` `Equal` `BracketLeft` `BracketRight` `Backslash` | `-` `=` `[` `]` `\` |
 | | `Semicolon` `Quote` `Comma` `Period` `Slash` `Backquote` | `;` `'` `,` `.` `/` `` ` `` |
-| Khác | `PrintScreen` | `printscreen` |
+| Other | `PrintScreen` | `printscreen` |
 
-### 4.5 Phím/nút đang giữ (tránh kẹt phím)
-Nếu Viewer mất kết nối khi đang giữ `Shift` hay chuột trái, Host sẽ bị kẹt. `PressedKeys` theo dõi trạng thái:
+### 4.5 Pressed keys/buttons (avoid stuck keys)
+If the Viewer disconnects while holding `Shift` or left click, the Host will be stuck. `PressedKeys` tracks state:
 
 ```ts
 export class PressedKeys {
-  /** Ghi nhận các hành động đã thực thi. */
+  /** Records executed actions. */
   track(actions: readonly HostAction[]): void;
-  /** Hành động `up` cho mọi phím/nút còn đang giữ (phím trước, chuột sau), rồi xoá trạng thái. */
+  /** `up` actions for all currently held keys/buttons (keys first, mouse second), then clears state. */
   releaseAll(): HostAction[];
   readonly size: number;
 }
 ```
-Host gọi `releaseAll()` khi: kênh input đóng, Viewer bị chuyển sang Observer, phiên kết thúc. `down` lặp lại cho cùng một phím chỉ tính một lần; `up` cho phím không giữ thì bỏ qua.
+Host calls `releaseAll()` when: the input channel closes, the Viewer is switched to Observer, the session terminates. Repeated `down` for the same key is counted only once; `up` for an unheld key is ignored.
 
-Nút chuột khi `releaseAll` được nhả tại toạ độ của lần `move` cuối cùng đã track (hoặc `0,0` nếu chưa có).
+Mouse buttons upon `releaseAll` are released at the coordinates of the last tracked `move` (or `0,0` if none).
 
-## 5. Kiểm thử
-- Bảng §4.4 kiểm **toàn bộ** bằng test table-driven.
-- Toạ độ: các góc (0,0), (1,1), giữa; màn hình 1920×1080 và 2560×1440; kết quả luôn là số nguyên trong biên.
-- Mỗi loại sự kiện chuột ra đúng chuỗi hành động §4.3.
-- Observer: mọi biến thể `InputEvent` → `[]`.
-- `PressedKeys`: down lặp, up không giữ, releaseAll thứ tự và làm rỗng.
-- Coverage `packages/host-core` ≥ 90% (06-test-strategy §7).
+## 5. Testing
+- Table §4.4 is verified **in full** using table-driven tests.
+- Coordinates: corners (0,0), (1,1), center; screens 1920×1080 and 2560×1440; results are always integers within bounds.
+- Each mouse event type produces the exact action sequence in §4.3.
+- Observer: all `InputEvent` variants → `[]`.
+- `PressedKeys`: repeated down, up when not held, releaseAll ordering and clearing.
+- Coverage for `packages/host-core` ≥ 90% (06-test-strategy §7).
