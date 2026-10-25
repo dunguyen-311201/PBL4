@@ -246,6 +246,13 @@ return 1
 ```
 Trả `0` → repository ném `ConcurrencyConflict`. Khi phiên đã chuyển `Terminated/Expired`, repository xoá `code:{code}` để mã có thể được dùng lại.
 
+**Đã implement (PR 2.5):**
+- Script nằm trong `infrastructure/redis/save-session.lua.ts` (chuỗi TypeScript thay vì file `.lua` để không phải copy asset khi build); gọi bằng `EVAL` với 2 khoá `sess:{id}`, `code:{code}`.
+- TTL = thời gian tới `session.nextCheckAt()` (theo `Clock` được inject) + 5 phút đệm; phiên đã đóng giữ 60 giây. Khoá `code:` được gia hạn cùng TTL với phiên.
+- Phiên đóng chỉ xoá `code:{code}` nếu khoá đó **vẫn trỏ về chính phiên này**, tránh xoá nhầm mã đã được phiên khác giữ.
+- `RedisDeadlineScheduler.claimDue(now, limit)` hiện thực bước 1–2 của §8; vòng `@Interval` và việc đặt lại mốc lỗi sẽ nằm trong module NestJS.
+- Chưa hỗ trợ Redis Cluster (hai khoá trong một script có thể khác slot); dùng hash tag `{id}` nếu cần sau này.
+
 ## 8. Scheduler đa instance
 
 `RedisDeadlineScheduler` + `@Interval(1000)` trong `ProcessDueDeadlines`:

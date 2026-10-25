@@ -2,21 +2,25 @@
   "name": "@pbl4/server",
   "version": "0.1.0",
   "private": true,
-  "description": "Signaling API — session lifecycle, access control, signaling and relay (NestJS)",
+  "description": "Signaling API \u2014 session lifecycle, access control, signaling and relay (NestJS)",
   "type": "module",
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
-    "argon2": "^0.45.1"
+    "argon2": "^0.45.1",
+    "ioredis": "^5.11.1"
   },
   "devDependencies": {
     "@pbl4/config": "workspace:*",
+    "@testcontainers/redis": "^12.2.1",
     "@types/node": "^22.0.0",
     "@vitest/coverage-v8": "^4.1.11",
+    "testcontainers": "^12.2.1",
     "typescript": "~5.9.3",
     "vitest": "^4.1.11"
   }
