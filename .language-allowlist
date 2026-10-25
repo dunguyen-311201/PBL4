@@ -2,11 +2,6 @@
 # scripts/check-language.mjs fails if any OTHER file contains Vietnamese,
 # and also if a file listed here no longer does. This list may only shrink.
 
-# T-006 — LLDs and protocol
-docs/03-lld/input-control.md
-docs/03-lld/session-access.md
-docs/04-protocol.md
-
 # T-007 — security, test strategy, ADRs
 docs/05-security.md
 docs/06-test-strategy.md
