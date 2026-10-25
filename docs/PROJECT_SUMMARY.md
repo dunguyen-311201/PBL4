@@ -86,7 +86,8 @@ Vấn đề vệ sinh repo: repo private (link CV báo 404); thư mục `app/` l
 | [adr/](adr/README.md) | ADR-001…007 + template | Accepted |
 | [ai-workflow.md](ai-workflow.md) | Phân vai Claude / Gemini, vòng task → code → review, định dạng task và review | v0.1 |
 | [benchmark.md](benchmark.md) | Cách đo và bảng kết quả (chưa có số) | Trống |
-| LLD signaling, media, input, host-app | Viết ngay trước Tuần 3–4 | Chưa viết |
+| [03-lld/input-control.md](03-lld/input-control.md) | `packages/host-core`: InputEvent → HostAction, toạ độ, bảng phím, chặn Observer, nhả phím kẹt | v0.1 |
+| LLD signaling, media, host-app | Viết ngay trước khi implement | Chưa viết |
 
 Kế hoạch tổng thể 5 tuần: `Documents\JobHunt\Notes\PBL4_PLAN.md`.
 
@@ -119,7 +120,7 @@ Kế hoạch tổng thể 5 tuần: `Documents\JobHunt\Notes\PBL4_PLAN.md`.
 - [x] PR #9 `fix/join-timing-dummy-hash` — phát hiện khi review T-001: mã không tồn tại trả lời nhanh hơn ~700 lần (0.04 ms so với 28 ms), làm lộ mã nào đang có. Sửa bằng hash giả thật do chính hasher tạo; đo lại 23.6 ms so với 23.4 ms.
 
 **Tiếp theo**
-0. T-002 (Gemini) — ICE server + credential TURN tạm thời (coturn REST API).
+0. Hàng đợi của Gemini (làm lần lượt, mỗi task một nhánh từ `master`): **T-002** ICE server + credential TURN · **T-003** `packages/host-core` ánh xạ input (theo `03-lld/input-control.md`) · **T-004** Docker Compose cho Redis, Postgres, coturn.
 1. PR 2.5 (Claude, đang làm) — `RedisSessionRepository` + Lua script + `RedisDeadlineScheduler` (integration test với Testcontainers).
 2. PR 2.6…2.7 — NestJS: REST + WS gateway, JWT, argon2, throttler; audit.
 
