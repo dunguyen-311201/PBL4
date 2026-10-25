@@ -21,7 +21,7 @@ The system's business domain is small. Tactical DDD (aggregate, value object, do
 | Approve / Reject | `approveJoin()` / `rejectJoin()` | Host only |
 | Controller / Observer | `ParticipantRole` (VO) | Viewer role after approval |
 | Lock | status `Locked` | After 5 consecutive failed OTP attempts |
-| Terminate / Expire | status `Terminated` / `Expired` | Voluntary termination / time expiry |
+| Terminate / Expire | status `Terminated` / `Expired` | Explicit termination / time expiry |
 
 Convention: class names, functions, and events in code use the exact English words in column 2; documentation and UI share the same vocabulary.
 
@@ -201,7 +201,7 @@ stateDiagram-v2
 | Command \ Status | WaitingForViewer | Locked | PendingApproval | Active | Terminated / Expired |
 |---|---|---|---|---|---|
 | `requestJoin` (valid OTP) | → PendingApproval | `SessionLocked` | `JoinAlreadyPending` | `SessionOccupied` | `SessionClosed` |
-| `requestJoin` (invalid OTP) | count error / → Locked | `SessionLocked` | `JoinAlreadyPending` | `SessionOccupied` | `SessionClosed` |
+| `requestJoin` (invalid OTP) | count failure / → Locked | `SessionLocked` | `JoinAlreadyPending` | `SessionOccupied` | `SessionClosed` |
 | `approveJoin` | `NoPendingJoin` | `NoPendingJoin` | → Active | `NoPendingJoin` | `SessionClosed` |
 | `rejectJoin` | `NoPendingJoin` | `NoPendingJoin` | → WaitingForViewer | `NoPendingJoin` | `SessionClosed` |
 | `regenerateOtp` | unchanged, new OTP | → WaitingForViewer | `JoinAlreadyPending` | `SessionOccupied` | `SessionClosed` |
@@ -226,7 +226,7 @@ All errors are subclasses of `DomainError` with stable `code`s mapped by the pre
 | `SessionTerminated` | `terminate` | sessionId, by (`host` \| `viewer`), reason | Disconnect both parties, Audit |
 | `SessionExpired` | `checkExpiry` | sessionId, previousStatus | Disconnect both parties, Audit |
 
-- The aggregate records events in an internal queue; the application service calls `pullEvents()` **after a successful save** and publishes them (NestJS `EventEmitter2` in v1).
+- The aggregate records events in an internal list; the application service calls `pullEvents()` **after a successful save** and publishes them (NestJS `EventEmitter2` in v1).
 - Events do not contain OTPs, hashes, or tokens.
 - Known limitation: publishing occurs after save without a shared transaction, so a process crash in between could lose audit events. Acceptable for v1; if strict guarantees are needed, use an outbox pattern (noted in ADR-005).
 
@@ -268,7 +268,7 @@ Written in this order, each line representing one test (red → green → refact
 6. `requestJoin` when `Locked` → `SessionLocked`, even with valid OTP.
 7. `regenerateOtp` when `Locked` → `WaitingForViewer`, resets counter, new OTP with new expiry.
 8. `requestJoin` with expired OTP → error, does not increment failure counter.
-9. Secondary `requestJoin` while `PendingApproval` → `JoinAlreadyPending` (I1, I3).
+9. A second `requestJoin` while `PendingApproval` → `JoinAlreadyPending` (I1, I3).
 10. `approveJoin` matching ID → `Active`, `viewer.role` correct, `activeExpiresAt = now + 2h`, publishes `JoinApproved`.
 11. `approveJoin` wrong ID or after `decisionDeadline` → corresponding error.
 12. `rejectJoin` → `WaitingForViewer`, OTP remains `consumed` (D1), publishes `JoinRejected(reason: rejected)`.

@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | ready |
+| Status | in-review |
 | Assignee | Gemini |
 | Branch | `gemini/T-005` (from `master`) |
 | Related | `AGENTS.md` › Language · `.ai/translation-glossary.md` · `docs/00-requirements.md`, `docs/01-hld.md`, `docs/02-domain-model.md` |
@@ -67,7 +67,8 @@ Translate the Vietnamese text in the files below into English so that the reposi
 | `docs/02-domain-model.md` | 15 / 15 | 9 / 9 | 77 / 77 | 4 / 4 | 3 / 3 |
 
 ### Diagram rendering verification
-- Checked all 7 Mermaid diagrams in `docs/01-hld.md` (System Context, Containers, 4 sequence diagrams, Deployment flowchart) and 3 Mermaid diagrams in `docs/02-domain-model.md` (Context map flowchart, `RemoteSession` class diagram, State machine diagram). All syntax and node labels were validated to contain properly paired quotes, valid characters, and correct Mermaid syntax.
+- Checked all 7 Mermaid diagrams in `docs/01-hld.md` (System Context, Containers, 4 sequence diagrams, Deployment flowchart) and 3 Mermaid diagrams in `docs/02-domain-model.md` (Context map flowchart, `RemoteSession` class diagram, State machine diagram).
+- Method: each diagram was parsed with the official Mermaid parser (`mermaid.parse`, Mermaid 11.x) in the T-005 review. Types: flowchart ×4, sequence ×4, class ×1, state ×1. All 10 parsed successfully. Node IDs, participant aliases and arrows were left unchanged; only labels, notes and messages were translated. `node count-elements.js` was used only to count elements, not to render.
 
 ### Commands executed
 - `node count-elements.js` (before and after structure validation)

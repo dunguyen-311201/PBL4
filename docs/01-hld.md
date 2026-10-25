@@ -8,7 +8,7 @@
 
 ## 1. Summary
 
-The system consists of a **Host App** (Electron) on the controlled machine, a **Viewer Web** (React) in the controlling user's browser, and a **Signaling API** (NestJS) in between to manage sessions, authentication, and connection exchange.
+The system consists of a **Host App** (Electron) on the controlled machine, a **Viewer Web** (React) in the controlling user's browser, and a **Signaling API** (NestJS) in between to manage sessions, authentication, and the exchange of connection information.
 
 Video and input **do not pass through the server** when WebRTC succeeds: they travel peer-to-peer (or via TURN) and are end-to-end encrypted with DTLS-SRTP. The server only relays video when using **Fallback Relay**.
 

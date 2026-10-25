@@ -95,9 +95,9 @@ This version worked on a single machine/LAN but had functional bugs, poor perfor
 ## 6. Constraints
 
 - Host App runs on **Windows 10/11** (primary demo platform). macOS is noted as "best effort" due to requiring Screen Recording and Accessibility permissions.
-- Viewer runs on modern Chrome/Edge browsers.
+- Viewer runs on current versions of Chrome/Edge.
 - Stack: TypeScript, NestJS, React, Electron, Redis, PostgreSQL, coturn — chosen to match existing experience and documented in ADRs.
-- Single developer, ~5 weeks duration.
+- Single developer, about 5 weeks.
 
 ## 7. Out of scope (v1)
 
