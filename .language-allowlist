@@ -2,11 +2,6 @@
 # scripts/check-language.mjs fails if any OTHER file contains Vietnamese,
 # and also if a file listed here no longer does. This list may only shrink.
 
-# T-005 — requirements, HLD, domain model
-docs/00-requirements.md
-docs/01-hld.md
-docs/02-domain-model.md
-
 # T-006 — LLDs and protocol
 docs/03-lld/input-control.md
 docs/03-lld/session-access.md

@@ -2,136 +2,136 @@
 
 | | |
 |---|---|
-| Trạng thái | Draft v0.2 (đã chốt Q1–Q3) |
-| Cập nhật | 2026-10-23 |
-| Tác giả | Nguyen Huu Du (`dunguyen-311201`) |
-| Liên quan | [01-hld.md](01-hld.md) · [ADR-001](adr/ADR-001-rewrite-instead-of-patch.md) |
+| Status | Draft v0.2 (Q1–Q3 resolved) |
+| Updated | 2026-10-23 |
+| Author | Nguyen Huu Du (`dunguyen-311201`) |
+| Related | [01-hld.md](01-hld.md) · [ADR-001](adr/ADR-001-rewrite-instead-of-patch.md) |
 
-## 1. Bối cảnh
+## 1. Context
 
-Bản 2021 (tag `v0-legacy-2021`) là đồ án môn học: một Electron app trên máy bị điều khiển chụp màn hình mỗi 500ms, gửi ảnh PNG base64 qua một Socket.IO relay; một trang HTML phía người điều khiển hiển thị ảnh và gửi ngược sự kiện chuột/phím, được thực thi bằng `robotjs`.
+The 2021 version (tag `v0-legacy-2021`) was a course project: an Electron app on the controlled machine captured the screen every 500ms, sending base64 PNG images through a Socket.IO relay; an HTML page on the controller side displayed the images and sent back mouse/keyboard events, executed using `robotjs`.
 
-Bản này chạy được trong một máy/LAN nhưng có lỗi chức năng, hiệu năng thấp và không có lớp bảo mật nào. Bản redesign xây lại hệ thống theo hướng một sản phẩm remote desktop tối thiểu nhưng đúng và an toàn.
+This version worked on a single machine/LAN but had functional bugs, poor performance, and no security layer. The redesign rebuilds the system toward a minimal, correct, and secure remote desktop product.
 
-## 2. Thuật ngữ
+## 2. Terminology
 
-| Thuật ngữ | Nghĩa |
+| Term | Meaning |
 |---|---|
-| **Host** | Người/máy chia sẻ màn hình và bị điều khiển. Chạy Host App (Electron). |
-| **Viewer** | Người xem/điều khiển từ xa. Dùng Viewer Web (trình duyệt). |
-| **Session** | Một phiên kết nối giữa đúng 1 Host và tối đa 1 Viewer. |
-| **Session Code** | Mã 9 chữ số định danh phiên, Host đọc cho Viewer. |
-| **One-time Password (OTP)** | Mật khẩu ngắn đi kèm Session Code, dùng một lần, có hạn. |
-| **Join Request** | Yêu cầu tham gia của Viewer, chờ Host duyệt. |
-| **Controller / Observer** | Viewer có quyền điều khiển / chỉ được xem. |
-| **Media Channel** | Kênh truyền hình ảnh màn hình (WebRTC, hoặc relay khi fallback). |
-| **Input Channel** | Kênh truyền sự kiện chuột/phím từ Viewer về Host. |
-| **Fallback Relay** | Chế độ truyền ảnh JPEG qua server Socket.IO khi WebRTC không kết nối được. |
+| **Host** | The person/machine sharing the screen and being controlled. Runs the Host App (Electron). |
+| **Viewer** | The remote viewer/controller. Uses Viewer Web (browser). |
+| **Session** | A connection session between exactly 1 Host and at most 1 Viewer. |
+| **Session Code** | A 9-digit code identifying the session, read by the Host to the Viewer. |
+| **One-time Password (OTP)** | A short password accompanying the Session Code, single-use, with an expiration time. |
+| **Join Request** | A join request from the Viewer, awaiting host approval. |
+| **Controller / Observer** | A Viewer with control permission / view-only permission. |
+| **Media Channel** | The channel transmitting screen video/images (WebRTC, or relay upon fallback). |
+| **Input Channel** | The channel transmitting mouse/keyboard events from the Viewer back to the Host. |
+| **Fallback Relay** | Mode transmitting JPEG images through the Socket.IO server when WebRTC cannot connect. |
 
 ## 3. Actors
 
-- **Host user** — mở Host App, tạo phiên, duyệt hoặc từ chối Viewer, thu hồi quyền, kết thúc phiên.
-- **Viewer user** — mở Viewer Web, nhập mã + OTP, xem và điều khiển khi được duyệt.
-- **System** — tự hết hạn phiên/OTP, ghi audit log.
+- **Host user** — opens the Host App, creates a session, approves or rejects the Viewer, revokes permissions, terminates the session.
+- **Viewer user** — opens Viewer Web, enters code + OTP, views and controls once approved.
+- **System** — automatically expires sessions/OTPs, records audit logs.
 
 ## 4. Functional requirements
 
-### 4.1 Vòng đời phiên
+### 4.1 Session lifecycle
 
-| ID | Yêu cầu | Ưu tiên |
+| ID | Requirement | Priority |
 |---|---|---|
-| FR-01 | Host tạo phiên và nhận Session Code (9 chữ số) + OTP (6 chữ số). | Must |
-| FR-02 | Host có thể tạo lại OTP mới; OTP cũ mất hiệu lực ngay. | Should |
-| FR-03 | Viewer gửi Join Request bằng Session Code + OTP. | Must |
-| FR-04 | Host nhận thông báo Join Request và chọn Cho phép / Từ chối. | Must |
-| FR-05 | Khi được cho phép, Viewer nhận quyền **Controller** (mặc định) hoặc **Observer** do Host chọn. | Must |
-| FR-06 | Host chuyển Viewer giữa Controller ⇄ Observer bất kỳ lúc nào. | Should |
-| FR-07 | Host hoặc Viewer có thể kết thúc phiên; phía còn lại được thông báo. | Must |
-| FR-08 | Phiên chưa có Viewer tự hết hạn sau 10 phút; OTP hết hạn sau 10 phút hoặc sau lần join thành công. | Must |
-| FR-09 | Mỗi phiên chỉ có tối đa 1 Viewer tại một thời điểm. | Must |
-| FR-09a | Phiên đang hoạt động tự kết thúc sau tối đa **2 giờ** kể từ lúc được duyệt; Host và Viewer được cảnh báo trước 5 phút. | Must |
-| FR-09b | Mọi phiên đều cần Host có mặt để duyệt; không hỗ trợ truy cập khi Host vắng mặt (unattended access). | Must |
+| FR-01 | Host creates a session and receives a Session Code (9 digits) + OTP (6 digits). | Must |
+| FR-02 | Host can regenerate the OTP; the old OTP becomes invalid immediately. | Should |
+| FR-03 | Viewer sends a Join Request using Session Code + OTP. | Must |
+| FR-04 | Host receives a Join Request notification and chooses Approve / Reject. | Must |
+| FR-05 | When approved, Viewer receives the **Controller** (default) or **Observer** role chosen by the Host. | Must |
+| FR-06 | Host can switch the Viewer between Controller ⇄ Observer at any time. | Should |
+| FR-07 | Host or Viewer can terminate the session; the other party is notified. | Must |
+| FR-08 | A session without a Viewer expires automatically after 10 minutes; OTP expires after 10 minutes or after a successful join. | Must |
+| FR-09 | Each session has at most 1 Viewer at a time. | Must |
+| FR-09a | An active session terminates automatically after at most **2 hours** from approval; Host and Viewer are warned 5 minutes in advance. | Must |
+| FR-09b | Every session requires the Host to be present to approve; unattended access is not supported. | Must |
 
-### 4.2 Hình ảnh
+### 4.2 Video display
 
-| ID | Yêu cầu | Ưu tiên |
+| ID | Requirement | Priority |
 |---|---|---|
-| FR-10 | Viewer xem được màn hình chính của Host theo thời gian thực. | Must |
-| FR-11 | Hệ thống ưu tiên kết nối WebRTC; nếu không thiết lập được trong 10 giây, tự chuyển sang Fallback Relay. | Must |
-| FR-12 | Viewer thấy chế độ đang dùng (WebRTC / Relay) và chỉ số fps, RTT, bitrate. | Should |
-| FR-13 | Viewer có thể bật toàn màn hình. | Could |
+| FR-10 | Viewer can view the Host's primary display in real time. | Must |
+| FR-11 | System prioritizes WebRTC connection; if not established within 10 seconds, automatically switches to Fallback Relay. | Must |
+| FR-12 | Viewer sees the active mode (WebRTC / Relay) and metrics for fps, RTT, bitrate. | Should |
+| FR-13 | Viewer can toggle fullscreen. | Could |
 
-### 4.3 Điều khiển
+### 4.3 Control
 
-| ID | Yêu cầu | Ưu tiên |
+| ID | Requirement | Priority |
 |---|---|---|
-| FR-20 | Controller điều khiển chuột: di chuyển, click trái/phải/giữa, double-click, kéo thả, cuộn. | Must |
-| FR-21 | Controller gõ được mọi phím thông dụng: chữ, số, ký tự đặc biệt, Enter, Backspace, Tab, Esc, mũi tên, F1–F12, và tổ hợp với Shift/Ctrl/Alt. | Must |
-| FR-22 | Vị trí chuột trên Host khớp vị trí trên Viewer ở mọi độ phân giải và tỉ lệ DPI. | Must |
-| FR-23 | Observer không gửi được sự kiện điều khiển (bị chặn ở cả Viewer và server). | Must |
-| FR-24 | Host có phím tắt khẩn cấp để thu hồi quyền điều khiển ngay lập tức. | Should |
+| FR-20 | Controller controls the mouse: move, left/right/middle click, double-click, drag-and-drop, scroll. | Must |
+| FR-21 | Controller can type all common keys: letters, numbers, special characters, Enter, Backspace, Tab, Esc, arrow keys, F1–F12, and combinations with Shift/Ctrl/Alt. | Must |
+| FR-22 | Mouse position on the Host matches the position on the Viewer across all resolutions and DPI scales. | Must |
+| FR-23 | Observer cannot send control events (blocked at both Viewer and server). | Must |
+| FR-24 | Host has an emergency shortcut to immediately revoke control permissions. | Should |
 
 ### 4.4 Audit
 
-| ID | Yêu cầu | Ưu tiên |
+| ID | Requirement | Priority |
 |---|---|---|
-| FR-30 | Ghi lại các sự kiện: tạo phiên, Join Request, cho phép/từ chối, đổi quyền, kết thúc, hết hạn — kèm thời điểm và IP. | Should |
+| FR-30 | Record events: session creation, Join Request, approve/reject, role change, termination, expiration — along with timestamp and IP. | Should |
 
 ## 5. Non-functional requirements
 
-| ID | Thuộc tính | Yêu cầu đo được | Cách kiểm chứng |
+| ID | Attribute | Measurable requirement | Verification method |
 |---|---|---|---|
-| NFR-01 | Độ trễ input | p95 < 150ms trong LAN (WebRTC) | Đo trong `benchmark.md` |
-| NFR-02 | Tốc độ khung hình | ≥ 15 fps ở chiều rộng 1280px (WebRTC); ≥ 5 fps ở Relay | `getStats` / đếm frame |
-| NFR-03 | Băng thông | Relay ≤ 1.5 Mbps ở 1280px, 5 fps | Đo trong `benchmark.md` |
-| NFR-04 | Bảo mật truyền tải | Mọi kết nối được mã hoá: HTTPS/WSS cho API, DTLS-SRTP cho WebRTC | Kiểm tra cấu hình deploy |
-| NFR-05 | Chống dò mã | Tối đa 5 lần join sai / IP / phút; mã + OTP đủ entropy | e2e test rate limit |
-| NFR-06 | Bền vững | Server không crash với payload sai định dạng hoặc quá lớn (giới hạn 1 MB) | e2e test với payload lỗi |
-| NFR-07 | Mở rộng | Chạy ≥ 2 instance server phía sau load balancer mà phiên vẫn hoạt động | Integration test với Redis adapter |
-| NFR-08 | Bảo mật Host App | `contextIsolation: true`, `nodeIntegration: false`, IPC theo whitelist, có CSP | Review cấu hình + test |
-| NFR-09 | Chất lượng mã | TypeScript strict; coverage domain ≥ 90%; CI chạy lint, typecheck, test | CI |
-| NFR-10 | Khả năng quan sát | Log có cấu trúc (JSON) kèm `sessionId`; không log OTP, JWT hay nội dung màn hình | Review + test |
+| NFR-01 | Input latency | p95 < 150ms within LAN (WebRTC) | Measured in `benchmark.md` |
+| NFR-02 | Frame rate | ≥ 15 fps at 1280px width (WebRTC); ≥ 5 fps on Relay | `getStats` / frame count |
+| NFR-03 | Bandwidth | Relay ≤ 1.5 Mbps at 1280px, 5 fps | Measured in `benchmark.md` |
+| NFR-04 | Transport security | All connections encrypted: HTTPS/WSS for API, DTLS-SRTP for WebRTC | Inspect deployment configuration |
+| NFR-05 | Brute-force protection | At most 5 failed join attempts / IP / minute; code + OTP have sufficient entropy | e2e rate limit test |
+| NFR-06 | Robustness | Server does not crash on malformed or oversized payloads (1 MB limit) | e2e test with invalid payloads |
+| NFR-07 | Scalability | Run ≥ 2 server instances behind a load balancer while sessions remain functional | Integration test with Redis adapter |
+| NFR-08 | Host App security | `contextIsolation: true`, `nodeIntegration: false`, whitelisted IPC, CSP enabled | Configuration review + test |
+| NFR-09 | Code quality | TypeScript strict; domain coverage ≥ 90%; CI runs lint, typecheck, test | CI |
+| NFR-10 | Observability | Structured logging (JSON) with `sessionId`; never log OTP, JWT, or screen content | Review + test |
 
-## 6. Ràng buộc
+## 6. Constraints
 
-- Host App chạy trên **Windows 10/11** (bản demo chính). macOS ghi nhận là "best effort" do cần quyền Screen Recording và Accessibility.
-- Viewer chạy trên Chrome/Edge bản hiện hành.
-- Stack: TypeScript, NestJS, React, Electron, Redis, PostgreSQL, coturn — chọn để khớp kinh nghiệm hiện có và tài liệu hoá trong ADR.
-- Một người phát triển, thời gian ~5 tuần.
+- Host App runs on **Windows 10/11** (primary demo platform). macOS is noted as "best effort" due to requiring Screen Recording and Accessibility permissions.
+- Viewer runs on modern Chrome/Edge browsers.
+- Stack: TypeScript, NestJS, React, Electron, Redis, PostgreSQL, coturn — chosen to match existing experience and documented in ADRs.
+- Single developer, ~5 weeks duration.
 
-## 7. Ngoài phạm vi (v1)
+## 7. Out of scope (v1)
 
-Truyền file, nhiều màn hình, âm thanh, chat, tài khoản người dùng/đăng nhập, ứng dụng mobile, nhiều Viewer cùng lúc, ghi hình phiên, truy cập khi Host vắng mặt (unattended access).
+File transfer, multiple monitors, audio, chat, user accounts/authentication, mobile apps, multiple simultaneous Viewers, session recording, unattended access.
 
-## 8. Truy vết lỗi bản 2021 → yêu cầu
+## 8. Traceability of 2021 defects → requirements
 
-| # | Lỗi trong bản 2021 | Vị trí | Yêu cầu khắc phục |
+| # | Defect in the 2021 version | Location | Remediating requirement |
 |---|---|---|---|
-| L1 | Phím chữ không gõ được: chỉ gửi keydown cho Shift/Ctrl, host chỉ gọi `keyToggle(key,'up')` | `display.html`, `Client/app.js` | FR-21 |
-| L2 | Tên phím trình duyệt không khớp tên phím robotjs | `Client/app.js` | FR-21 |
-| L3 | Toạ độ chuột hard-code `*4/3` | `Client/app.js` | FR-22 |
-| L4 | Thiếu kéo thả, double-click, cuộn; chuột giữa bị coi là chuột trái | `display.html`, `Client/app.js` | FR-20 |
-| L5 | Viewer kết nối cứng `http://localhost:5000` | `display.html` | FR-10 |
-| L6 | `JSON.parse` không try/catch trên server | `Server/index.js` | NFR-06 |
-| L7 | Điều kiện `&&` sai; `prompt` trả về `null` gây crash | `Client/app.js`, `display.html` | NFR-06 |
-| L8 | Listener đăng ký lại mỗi lần Start; Stop trước Start gây crash | `Client/app.js` | FR-07 |
-| L9 | PNG base64 + JSON, `setInterval` không backpressure, ~2 fps | `Client/app.js` | FR-11, NFR-02, NFR-03 |
-| L10 | `mousemove` không throttle | `display.html` | NFR-01 |
-| L11 | Không xác thực; UUID room không đổi giữa các phiên; không cần Host duyệt | toàn hệ thống | FR-01…FR-09, NFR-05 |
-| L12 | HTTP thuần, hình ảnh và phím truyền không mã hoá | toàn hệ thống | NFR-04 |
-| L13 | Electron `nodeIntegration: true`, không `contextIsolation` | `Client/app.js` | NFR-08 |
-| L14 | Mô hình public IP + port 5000 cần mở port, không vượt NAT | `Server/index.js` | FR-11 |
+| L1 | Letter keys could not be typed: only sent keydown for Shift/Ctrl, host only called `keyToggle(key,'up')` | `display.html`, `Client/app.js` | FR-21 |
+| L2 | Browser key names did not match robotjs key names | `Client/app.js` | FR-21 |
+| L3 | Mouse coordinates hard-coded `*4/3` | `Client/app.js` | FR-22 |
+| L4 | Missing drag-and-drop, double-click, scroll; middle click treated as left click | `display.html`, `Client/app.js` | FR-20 |
+| L5 | Viewer hard-coded connection to `http://localhost:5000` | `display.html` | FR-10 |
+| L6 | `JSON.parse` without try/catch on server | `Server/index.js` | NFR-06 |
+| L7 | Incorrect `&&` condition; `prompt` returning `null` caused a crash | `Client/app.js`, `display.html` | NFR-06 |
+| L8 | Listeners re-registered on every Start; Stop before Start caused a crash | `Client/app.js` | FR-07 |
+| L9 | Base64 PNG + JSON, `setInterval` without backpressure, ~2 fps | `Client/app.js` | FR-11, NFR-02, NFR-03 |
+| L10 | `mousemove` unthrottled | `display.html` | NFR-01 |
+| L11 | No authentication; room UUID unchanged between sessions; no host approval required | entire system | FR-01…FR-09, NFR-05 |
+| L12 | Plain HTTP, unencrypted image and keystroke transmission | entire system | NFR-04 |
+| L13 | Electron `nodeIntegration: true`, no `contextIsolation` | `Client/app.js` | NFR-08 |
+| L14 | Public IP + port 5000 model required port forwarding, failed NAT traversal | `Server/index.js` | FR-11 |
 
-## 9. Quyết định đã chốt (2026-10-23)
+## 9. Decisions made (2026-10-23)
 
-| # | Câu hỏi | Quyết định | Ghi chú |
+| # | Question | Decision | Note |
 |---|---|---|---|
-| Q1 | Định dạng OTP | **6 chữ số** | Dễ đọc qua điện thoại. Không gian 10⁶ nhỏ hơn OTP chữ + số, nên an toàn dựa vào nhiều lớp: Session Code 9 số, rate limit 5 lần/IP/phút, OTP hết hạn 10 phút, **khoá phiên sau 5 lần sai liên tiếp** (FR-03a), và Host luôn phải duyệt. Phân tích trong `05-security.md`. |
-| Q2 | Truy cập khi Host vắng mặt | **Không hỗ trợ** | FR-09b. Đưa vào "Ngoài phạm vi". |
-| Q3 | Thời lượng tối đa của phiên | **2 giờ** | FR-09a; cảnh báo trước 5 phút. |
+| Q1 | OTP format | **6 digits** | Easy to read over the phone. A keyspace of 10⁶ is smaller than alphanumeric OTPs, so security relies on multiple layers: 9-digit Session Code, rate limit of 5 attempts/IP/minute, 10-minute OTP expiration, **locking the session after 5 consecutive failed attempts** (FR-03a), and Host must always approve. Analyzed in `05-security.md`. |
+| Q2 | Unattended access | **Not supported** | FR-09b. Placed in "Out of scope". |
+| Q3 | Maximum session duration | **2 hours** | FR-09a; warned 5 minutes in advance. |
 
-Bổ sung từ Q1:
+Additions from Q1:
 
-| ID | Yêu cầu | Ưu tiên |
+| ID | Requirement | Priority |
 |---|---|---|
-| FR-03a | Sau 5 lần nhập sai OTP liên tiếp cho cùng một phiên, phiên bị khoá join và Host được thông báo; Host có thể tạo OTP mới (FR-02) để mở lại. | Must |
+| FR-03a | After 5 consecutive failed OTP attempts for the same session, the session is locked from joining and Host is notified; Host can regenerate the OTP (FR-02) to unlock it. | Must |

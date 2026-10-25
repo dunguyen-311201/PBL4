@@ -2,15 +2,15 @@
 
 | | |
 |---|---|
-| Trạng thái | Draft v0.1 |
-| Cập nhật | 2026-10-23 |
-| Liên quan | [00-requirements.md](00-requirements.md) · [02-domain-model.md](02-domain-model.md) · [adr/](adr/) |
+| Status | Draft v0.1 |
+| Updated | 2026-10-23 |
+| Related | [00-requirements.md](00-requirements.md) · [02-domain-model.md](02-domain-model.md) · [adr/](adr/) |
 
-## 1. Tóm tắt
+## 1. Summary
 
-Hệ thống gồm một **Host App** (Electron) trên máy bị điều khiển, một **Viewer Web** (React) trên trình duyệt người điều khiển, và một **Signaling API** (NestJS) đứng giữa để quản lý phiên, xác thực và trao đổi thông tin kết nối.
+The system consists of a **Host App** (Electron) on the controlled machine, a **Viewer Web** (React) in the controlling user's browser, and a **Signaling API** (NestJS) in between to manage sessions, authentication, and connection exchange.
 
-Hình ảnh và input **không đi qua server** khi WebRTC thành công: chúng đi peer-to-peer (hoặc qua TURN) và được mã hoá đầu-cuối bằng DTLS-SRTP. Server chỉ chuyển hình ảnh khi phải dùng **Fallback Relay**.
+Video and input **do not pass through the server** when WebRTC succeeds: they travel peer-to-peer (or via TURN) and are end-to-end encrypted with DTLS-SRTP. The server only relays video when using **Fallback Relay**.
 
 ## 2. C4 Level 1 — System Context
 
@@ -21,9 +21,9 @@ flowchart LR
     sys[Remote Desktop System]:::system
     stun[(Public STUN)]:::ext
 
-    host -- "Tạo phiên, duyệt Viewer,<br/>chia sẻ màn hình" --> sys
-    viewer -- "Nhập mã + OTP,<br/>xem và điều khiển" --> sys
-    sys -- "Khám phá địa chỉ public<br/>(ICE)" --> stun
+    host -- "Create session, approve Viewer,<br/>share screen" --> sys
+    viewer -- "Enter code + OTP,<br/>view and control" --> sys
+    sys -- "Discover public addresses<br/>(ICE)" --> stun
 
     classDef person fill:#dbeafe,stroke:#1d4ed8,color:#111
     classDef system fill:#1d4ed8,stroke:#1e3a8a,color:#fff
@@ -34,42 +34,42 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-    subgraph hostpc[Máy Host - Windows]
-        hostapp["Host App<br/><i>Electron + TypeScript</i><br/>Chụp màn hình, thực thi input,<br/>UI duyệt Viewer"]
+    subgraph hostpc[Host Machine - Windows]
+        hostapp["Host App<br/><i>Electron + TypeScript</i><br/>Screen capture, input execution,<br/>Viewer approval UI"]
     end
 
-    subgraph browser[Trình duyệt Viewer]
-        viewerweb["Viewer Web<br/><i>React + Vite + TypeScript</i><br/>Nhập mã, hiển thị màn hình,<br/>gửi input"]
+    subgraph browser[Viewer Browser]
+        viewerweb["Viewer Web<br/><i>React + Vite + TypeScript</i><br/>Enter code, display screen,<br/>send input"]
     end
 
     subgraph cloud[Server / VPS]
-        api["Signaling API<br/><i>NestJS</i><br/>REST: tạo/join phiên<br/>WS Gateway: duyệt, signaling, relay"]
+        api["Signaling API<br/><i>NestJS</i><br/>REST: create/join session<br/>WS Gateway: approval, signaling, relay"]
         redis[("Redis<br/>Session state (TTL)<br/>Socket.IO adapter<br/>Rate limit")]
         pg[("PostgreSQL<br/>Audit log")]
         turn["coturn<br/>TURN/STUN"]
     end
 
-    hostapp -- "HTTPS + WSS<br/>(phiên, signaling, relay)" --> api
+    hostapp -- "HTTPS + WSS<br/>(session, signaling, relay)" --> api
     viewerweb -- "HTTPS + WSS" --> api
     api --> redis
     api --> pg
     hostapp <-. "WebRTC: media + DataChannel<br/>(DTLS-SRTP, P2P)" .-> viewerweb
-    hostapp <-. "khi P2P thất bại" .-> turn
-    viewerweb <-. "khi P2P thất bại" .-> turn
+    hostapp <-. "when P2P fails" .-> turn
+    viewerweb <-. "when P2P fails" .-> turn
 ```
 
-| Container | Công nghệ | Trách nhiệm | Không làm |
+| Container | Technology | Responsibilities | Does not do |
 |---|---|---|---|
-| Host App | Electron, `desktopCapturer`, `@jitsi/robotjs` | Tạo phiên, hiển thị Join Request, chụp & stream màn hình, thực thi input đã được xác thực | Không tự quyết quyền; quyền do server cấp |
-| Viewer Web | React, Vite | Nhập mã + OTP, hiển thị video/ảnh, thu input, hiển thị chỉ số | Không giữ bí mật lâu dài (chỉ JWT ngắn hạn trong bộ nhớ) |
-| Signaling API | NestJS, Socket.IO | Vòng đời phiên, xác thực, cấp JWT, relay signaling, Fallback Relay, rate limit, phát domain event | Không lưu nội dung màn hình |
-| Redis | Redis 7 | Trạng thái phiên có TTL, ánh xạ code → session, Socket.IO adapter, bộ đếm rate limit | Không là nguồn audit |
-| PostgreSQL | PostgreSQL 16 | Audit log bất biến | Không giữ trạng thái phiên đang chạy |
-| coturn | coturn | TURN relay khi P2P không thông, credential tạm thời | — |
+| Host App | Electron, `desktopCapturer`, `@jitsi/robotjs` | Create session, display Join Request, capture & stream screen, execute authenticated input | Does not determine permissions autonomously; permissions granted by server |
+| Viewer Web | React, Vite | Enter code + OTP, display video/images, capture input, display metrics | Does not persist long-term secrets (short-lived in-memory JWT only) |
+| Signaling API | NestJS, Socket.IO | Session lifecycle, authentication, issue JWT, relay signaling, Fallback Relay, rate limit, publish domain events | Does not store screen content |
+| Redis | Redis 7 | Session state with TTL, code → session mapping, Socket.IO adapter, rate limit counters | Not an audit source |
+| PostgreSQL | PostgreSQL 16 | Immutable audit log | Does not maintain active session state |
+| coturn | coturn | TURN relay when P2P is blocked, ephemeral credentials | — |
 
-## 4. Luồng chính
+## 4. Key flows
 
-### 4.1 Tạo phiên và duyệt Viewer (FR-01…FR-05)
+### 4.1 Session creation and Viewer approval (FR-01…FR-05)
 
 ```mermaid
 sequenceDiagram
@@ -80,23 +80,23 @@ sequenceDiagram
     participant V as Viewer Web
 
     H->>A: POST /sessions
-    A->>R: lưu Session(Created→WaitingForViewer), code→id, OTP hash, TTL 10'
-    A-->>H: { sessionId, code (9 số), otp (6 số), hostToken }
+    A->>R: save Session(Created→WaitingForViewer), code→id, OTP hash, TTL 10'
+    A-->>H: { sessionId, code (9 digits), otp (6 digits), hostToken }
     H->>A: WS connect (auth: hostToken)
-    Note over H: Host đọc code + OTP cho Viewer
+    Note over H: Host reads code + OTP to Viewer
 
     V->>A: POST /sessions/join { code, otp }
-    A->>A: rate limit theo IP
-    A->>R: kiểm tra trạng thái + OTP, đánh dấu OTP đã dùng, chuyển → PendingApproval
+    A->>A: rate limit by IP
+    A->>R: check status + OTP, mark OTP consumed, transition → PendingApproval
     A-->>V: { joinRequestId } (202)
     A-->>H: WS "join.requested" { joinRequestId, ip }
     H->>A: WS "join.approve" { joinRequestId, role }
-    A->>R: chuyển → Active, đặt hạn 2 giờ
-    A-->>V: WS/poll "join.approved" { viewerToken (JWT, TTL ngắn), role, iceServers }
+    A->>R: transition → Active, set 2-hour deadline
+    A-->>V: WS/poll "join.approved" { viewerToken (JWT, short TTL), role, iceServers }
     V->>A: WS connect (auth: viewerToken)
 ```
 
-### 4.2 Thiết lập WebRTC (FR-10, FR-20, FR-21)
+### 4.2 WebRTC setup (FR-10, FR-20, FR-21)
 
 ```mermaid
 sequenceDiagram
@@ -107,16 +107,16 @@ sequenceDiagram
 
     H->>H: desktopCapturer → MediaStream
     H->>A: "rtc.offer" { sdp }
-    A->>A: kiểm tra cả hai thuộc cùng phiên Active
+    A->>A: verify both belong to same Active session
     A-->>V: "rtc.offer" { sdp }
     V->>A: "rtc.answer" { sdp }
     A-->>H: "rtc.answer" { sdp }
-    H-)A: "rtc.ice" (nhiều lần)
+    H-)A: "rtc.ice" (multiple times)
     A--)V: "rtc.ice"
-    V-)A: "rtc.ice" (nhiều lần)
+    V-)A: "rtc.ice" (multiple times)
     A--)H: "rtc.ice"
-    Note over H,V: ICE thành công → media track + DataChannel "input"
-    V-)H: input qua DataChannel (pointer unordered, key/click ordered)
+    Note over H,V: ICE success → media track + DataChannel "input"
+    V-)H: input via DataChannel (pointer unordered, key/click ordered)
 ```
 
 ### 4.3 Fallback Relay (FR-11)
@@ -128,21 +128,21 @@ sequenceDiagram
     participant A as Signaling API
     participant V as Viewer Web
 
-    Note over H,V: ICE thất bại hoặc quá 10 giây
+    Note over H,V: ICE fails or exceeds 10 seconds
     V->>A: "media.fallback" { reason }
     A-->>H: "media.fallback"
-    loop mỗi frame
+    loop each frame
         H->>A: "relay.frame" (binary JPEG) + ack
         A-->>V: "relay.frame" (binary)
         V-->>A: ack
-        A-->>H: ack → Host mới chụp frame tiếp (backpressure)
+        A-->>H: ack → Host captures next frame (backpressure)
     end
     V->>A: "relay.input" { ... }
-    A->>A: kiểm tra role = controller
+    A->>A: verify role = controller
     A-->>H: "relay.input"
 ```
 
-### 4.4 Kết thúc và hết hạn (FR-07, FR-08)
+### 4.4 Termination and expiration (FR-07, FR-08)
 
 ```mermaid
 sequenceDiagram
@@ -152,22 +152,22 @@ sequenceDiagram
     participant R as Redis
     participant V as Viewer Web
 
-    alt Host hoặc Viewer kết thúc
+    alt Host or Viewer terminates
         H->>A: "session.terminate"
-        A->>R: chuyển → Terminated, xoá khoá
+        A->>R: transition → Terminated, delete keys
         A-->>V: "session.terminated"
-    else Hết hạn (TTL)
-        R-->>A: keyspace notification / job quét
+    else Expired (TTL)
+        R-->>A: keyspace notification / scan job
         A-->>H: "session.expired"
     end
-    A->>A: phát domain event → Audit ghi PostgreSQL
+    A->>A: publish domain event → Audit writes to PostgreSQL
 ```
 
 ## 5. Deployment
 
-**Local (phát triển):** `docker-compose` gồm `api`, `redis`, `postgres`, `coturn`; Viewer chạy `vite dev`; Host App chạy `electron .`.
+**Local (development):** `docker-compose` including `api`, `redis`, `postgres`, `coturn`; Viewer runs `vite dev`; Host App runs `electron .`.
 
-**Demo:** một VPS chạy docker-compose phía sau Caddy/Nginx (TLS tự động) với domain riêng; coturn mở cổng UDP/TCP 3478 và dải cổng relay; Host App đóng gói bằng `electron-builder` (Windows) và phát hành qua GitHub Releases.
+**Demo:** a single VPS running docker-compose behind Caddy/Nginx (automated TLS) with a custom domain; coturn opens UDP/TCP port 3478 and relay port ranges; Host App packaged via `electron-builder` (Windows) and released via GitHub Releases.
 
 ```mermaid
 flowchart LR
@@ -179,34 +179,34 @@ flowchart LR
         api1 --> pg[(postgres)]
         turn[coturn :3478 UDP/TCP]
     end
-    viewer[Viewer - trình duyệt] -- WSS/HTTPS --> proxy
+    viewer[Viewer - browser] -- WSS/HTTPS --> proxy
     host[Host App] -- WSS/HTTPS --> proxy
 ```
 
-## 6. Thuộc tính chất lượng → quyết định thiết kế
+## 6. Quality attributes → design decisions
 
-| NFR | Quyết định | ADR |
+| NFR | Decision | ADR |
 |---|---|---|
-| NFR-01, NFR-02 Độ trễ, fps | WebRTC (UDP, codec video, congestion control) cho media; DataChannel cho input; pointer unordered | ADR-002 |
-| NFR-03 Băng thông relay | JPEG nhị phân, giảm độ phân giải, ack-based backpressure | ADR-003 |
-| NFR-04 Mã hoá | WSS/HTTPS qua reverse proxy; DTLS-SRTP mặc định của WebRTC | ADR-002 |
-| NFR-05 Chống dò mã | Mã 9 số + OTP + Host duyệt + rate limit trong Redis | ADR-004 |
-| NFR-06 Bền vững | Validate mọi payload bằng schema dùng chung; giới hạn kích thước | ADR-007 |
-| NFR-07 Mở rộng | Trạng thái phiên trong Redis, Socket.IO Redis adapter; server stateless | ADR-005 |
-| NFR-08 Bảo mật Host | `contextIsolation`, preload + `contextBridge`, IPC whitelist | (LLD host-app) |
-| NFR-09 Chất lượng | Clean architecture, DDD ở Session & Access, TDD | ADR-006 |
+| NFR-01, NFR-02 Latency, fps | WebRTC (UDP, video codec, congestion control) for media; DataChannel for input; pointer unordered | ADR-002 |
+| NFR-03 Relay bandwidth | Binary JPEG, downscaled resolution, ack-based backpressure | ADR-003 |
+| NFR-04 Encryption | WSS/HTTPS via reverse proxy; WebRTC default DTLS-SRTP | ADR-002 |
+| NFR-05 Brute-force protection | 9-digit code + OTP + host approval + rate limiting in Redis | ADR-004 |
+| NFR-06 Robustness | Validate all payloads with shared schema; size limits | ADR-007 |
+| NFR-07 Scalability | Session state in Redis, Socket.IO Redis adapter; stateless server | ADR-005 |
+| NFR-08 Host security | `contextIsolation`, preload + `contextBridge`, IPC whitelist | (host-app LLD) |
+| NFR-09 Quality | Clean architecture, DDD in Session & Access, TDD | ADR-006 |
 
-## 7. Rủi ro kiến trúc
+## 7. Architectural risks
 
-| Rủi ro | Ảnh hưởng | Giảm thiểu |
+| Risk | Impact | Mitigation |
 |---|---|---|
-| Invariant "1 Viewer/phiên" bị vi phạm khi 2 instance xử lý đồng thời | Hai người cùng điều khiển | Chuyển trạng thái nguyên tử trong Redis (Lua script hoặc `WATCH/MULTI`) |
-| ICE thất bại ở mạng doanh nghiệp | Không xem được màn hình | TURN qua TCP/443; Fallback Relay |
-| Native module (`robotjs`) không build trên Electron mới | Không điều khiển được | `@jitsi/robotjs` + `electron-rebuild`; dự phòng `nut.js` |
-| Relay tiêu tốn băng thông server | Chi phí, nghẽn | Giới hạn fps/độ phân giải ở relay; chỉ dùng khi cần |
+| Invariant "1 Viewer/session" violated when 2 instances process concurrently | Two users controlling simultaneously | Atomic state transition in Redis (Lua script or `WATCH/MULTI`) |
+| ICE failure on corporate networks | Screen cannot be viewed | TURN over TCP/443; Fallback Relay |
+| Native module (`robotjs`) fails to build on newer Electron | Cannot control | `@jitsi/robotjs` + `electron-rebuild`; `nut.js` fallback |
+| Relay consumes server bandwidth | Cost, congestion | Limit fps/resolution on relay; use only when necessary |
 
-## 8. Việc tiếp theo
+## 8. Next steps
 
-- `02-domain-model.md`: chi tiết aggregate `RemoteSession`, invariants, state machine, domain events.
-- `04-protocol.md`: bảng sự kiện WS/DataChannel và REST theo các luồng ở mục 4.
-- `05-security.md`: STRIDE cho từng container ở mục 3.
+- `02-domain-model.md`: details of `RemoteSession` aggregate, invariants, state machine, domain events.
+- `04-protocol.md`: WS/DataChannel and REST event table following flows in section 4.
+- `05-security.md`: STRIDE for each container in section 3.
