@@ -1,4 +1,4 @@
-# T-003 — `packages/host-core`: input mapping and pressed keys tracking
+# T-003 — `packages/host-core`: input mapping and pressed-key tracking
 
 | | |
 |---|---|

@@ -65,7 +65,7 @@ The constructor throws `Error` if `turnUrls` is not empty but `turnSecret` is em
 - [x] STUN only → exactly one element, without `username`/`credential`.
 - [x] TURN only → exactly one element with `username` and `credential`.
 - [x] Both empty → `[]`.
-- [x] Constructor throws error for: TURN has URLs but secret is empty; `stunUrls` contains a `turn:` URL; `turnUrls` contains an `http:` URL.
+- [x] Constructor throws an error for: TURN has URLs but secret is empty; `stunUrls` contains a `turn:` URL; `turnUrls` contains an `http:` URL.
 - [x] Does not log and does not include `turnSecret` in any return value (test: `JSON.stringify(result)` does not contain the secret).
 - [x] `pnpm run check` passes.
 

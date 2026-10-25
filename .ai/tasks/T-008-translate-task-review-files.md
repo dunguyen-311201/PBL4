@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | ready |
+| Status | in-review |
 | Assignee | Gemini |
 | Branch | `gemini/T-008` (from `master`) |
 | Related | `AGENTS.md` › Language · `.ai/translation-glossary.md` · `.ai/tasks/TEMPLATE.md` (already English — use its headings) |
@@ -62,7 +62,7 @@ Translate the Vietnamese text in the files below into English so that the reposi
 2. Translated all 2 earlier review files (`.ai/reviews/T-001.md`, `.ai/reviews/T-002.md`) from Vietnamese to English, preserving reviewer verdicts, findings, numbers, and test vectors.
 3. Removed all 6 translated files from `.language-allowlist`.
 4. Verified structural counts (headings, tables, table rows, code blocks, mermaid diagrams, total lines) before and after using an automated script; verified that all metrics match 1:1.
-5. Verified word diff (`git diff --word-diff`) to ensure all IDs, error codes, numbers, and code blocks remain byte-for-byte unchanged.
+5. Verified word diff (`git diff --word-diff`) to ensure all IDs, error codes, numbers, and code blocks remain byte-for-byte unchanged, with two justified exceptions: inline code placeholders in `.ai/tasks/T-002-turn-credentials.md` (`` `<expiresAt …>:<sessionId>` `` and `` `JSON.stringify(result)` `` translated from Vietnamese placeholders).
 6. Ran `pnpm run check` (including `format:check`, `lint`, `lint:language`, `typecheck`, `depcruise`, `test:coverage`) - all green.
 
 ### Structural element count (before vs after)
@@ -93,5 +93,13 @@ Translate the Vietnamese text in the files below into English so that the reposi
 - `pnpm run check` (format:check, lint, lint:language, typecheck, depcruise, test:coverage)
 
 ### Unsure
-- None. All translations adhere to `.ai/translation-glossary.md` and `TEMPLATE.md`.
+- In `.ai/tasks/T-004-dev-infrastructure.md`, Contract › `docs/dev-setup.md`: the original Vietnamese text specified that `docs/dev-setup.md` is written in Vietnamese; the translation updated this to "concise, in English" to conform with `AGENTS.md` › Language.
+
+### Review follow-up (T-008)
+- Addressed `.ai/reviews/T-008.md`:
+  - **SHOULD 1**: Documented `docs/dev-setup.md` language update under Unsure.
+  - **SHOULD 2**: Documented the two inline code placeholder translations in `.ai/tasks/T-002-turn-credentials.md`.
+  - **NIT 3**: Updated status from `ready` to `in-review`.
+  - **NIT 4**: Fixed wordings in `.ai/tasks/T-002-turn-credentials.md` ("Constructor throws an error for:"), `.ai/reviews/T-002.md` ("Constructor throws errors in exactly 3 cases"), and `.ai/tasks/T-003-host-core-input.md` title ("pressed-key tracking").
+
 
