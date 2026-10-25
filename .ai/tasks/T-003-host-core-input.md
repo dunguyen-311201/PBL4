@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Trạng thái | ready |
+| Trạng thái | on-hold |
 | Người làm | Gemini |
 | Nhánh | `gemini/T-003` (tạo từ `master`) |
 | Liên quan | **`docs/03-lld/input-control.md`** (đặc tả chính) · FR-20…FR-24 · L1–L4 · 05-security E2 |

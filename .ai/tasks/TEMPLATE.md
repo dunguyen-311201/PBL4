@@ -1,36 +1,36 @@
-# T-xxx — <tiêu đề>
+# T-xxx — <title>
 
 | | |
 |---|---|
-| Trạng thái | ready |
-| Người làm | Gemini |
-| Nhánh | `gemini/T-xxx` |
-| Liên quan | docs/…, FR-…, ADR-… |
+| Status | ready |
+| Assignee | Gemini |
+| Branch | `gemini/T-xxx` |
+| Related | docs/…, FR-…, ADR-… |
 
-## Mục tiêu
-Một hai câu: làm gì và vì sao.
+## Goal
+One or two sentences: what and why.
 
-## Đọc trước
+## Read first
 - …
 
-## Phạm vi (chỉ được tạo/sửa các file này)
+## Scope (only these files may be created or changed)
 - …
 
-## Dependency được phép thêm
-- … (hoặc "không có")
+## Allowed new dependencies
+- … (or "none")
 
-## Hợp đồng
-Interface/port cần hiện thực, chữ ký hàm, hành vi.
+## Contract
+Interface/port to implement, function signatures, behaviour.
 
-## Tiêu chí chấp nhận
-- [ ] … (mỗi dòng kiểm được bằng test hoặc lệnh)
-- [ ] `pnpm run check` xanh
+## Acceptance criteria
+- [ ] … (each line checkable by a test or a command)
+- [ ] `pnpm run check` passes
 
-## Test bắt buộc
+## Required tests
 - …
 
-## Ngoài phạm vi
+## Out of scope
 - …
 
-## Báo cáo của Gemini
-_(Gemini điền sau khi làm xong.)_
+## Gemini report
+_(Filled in by Gemini when done.)_
