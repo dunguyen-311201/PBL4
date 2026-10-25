@@ -1,22 +1,22 @@
-# ADR-XXX — <Tiêu đề quyết định>
+# ADR-XXX — <Decision title>
 
 | | |
 |---|---|
-| Trạng thái | Proposed / Accepted / Superseded by ADR-YYY |
-| Ngày | YYYY-MM-DD |
-| Liên quan | FR-.., NFR-.., ADR-.. |
+| Status | Proposed / Accepted / Superseded by ADR-YYY |
+| Date | YYYY-MM-DD |
+| Related | FR-.., NFR-.., ADR-.. |
 
 ## Context
-Vấn đề cần quyết định là gì, ràng buộc nào đang có.
+What problem needs a decision, what constraints currently exist.
 
 ## Decision
-Quyết định cụ thể, viết ở thể chủ động: "Chúng tôi dùng ...".
+Specific decision, written in active voice: "We use ...".
 
 ## Alternatives
-| Phương án | Ưu | Nhược | Lý do loại |
+| Alternative | Pros | Cons | Why rejected |
 |---|---|---|---|
 
 ## Consequences
-- Tích cực:
-- Tiêu cực / chi phí:
-- Việc phải làm theo:
+- Positive:
+- Negative / costs:
+- Follow-up actions:

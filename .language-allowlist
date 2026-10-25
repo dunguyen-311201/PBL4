@@ -12,19 +12,6 @@ docs/03-lld/input-control.md
 docs/03-lld/session-access.md
 docs/04-protocol.md
 
-# T-007 — security, test strategy, ADRs
-docs/05-security.md
-docs/06-test-strategy.md
-docs/adr/0000-template.md
-docs/adr/ADR-001-rewrite-instead-of-patch.md
-docs/adr/ADR-002-webrtc-for-media.md
-docs/adr/ADR-003-relay-fallback.md
-docs/adr/ADR-004-session-code-otp-approval.md
-docs/adr/ADR-005-redis-state-postgres-audit.md
-docs/adr/ADR-006-clean-architecture-selective-ddd.md
-docs/adr/ADR-007-monorepo-shared-protocol.md
-docs/adr/README.md
-
 # T-008 — task and review files
 .ai/reviews/T-001.md
 .ai/reviews/T-002.md
