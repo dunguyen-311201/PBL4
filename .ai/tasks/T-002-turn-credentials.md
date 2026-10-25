@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Trạng thái | in-review |
+| Trạng thái | done |
 | Người làm | Gemini |
 | Nhánh | `gemini/T-002` (tạo từ `master`) |
 | Liên quan | `docs/04-protocol.md` §4.4 (`join.approved.iceServers`) · `docs/05-security.md` D5 · ADR-002 · `docs/03-lld/session-access.md` §2, §9 |
