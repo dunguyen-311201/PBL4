@@ -1,13 +1,23 @@
 # Files that still contain Vietnamese and are waiting for translation.
+
 # scripts/check-language.mjs fails if any OTHER file contains Vietnamese,
+
 # and also if a file listed here no longer does. This list may only shrink.
 
 # T-005 — requirements, HLD, domain model
+
 docs/00-requirements.md
 docs/01-hld.md
 docs/02-domain-model.md
 
+# T-006 — LLDs and protocol
+
+docs/03-lld/input-control.md
+docs/03-lld/session-access.md
+docs/04-protocol.md
+
 # T-007 — security, test strategy, ADRs
+
 docs/05-security.md
 docs/06-test-strategy.md
 docs/adr/0000-template.md
@@ -21,6 +31,7 @@ docs/adr/ADR-007-monorepo-shared-protocol.md
 docs/adr/README.md
 
 # T-008 — task and review files
+
 .ai/reviews/T-001.md
 .ai/reviews/T-002.md
 .ai/tasks/T-001-crypto-adapters.md
@@ -29,6 +40,7 @@ docs/adr/README.md
 .ai/tasks/T-004-dev-infrastructure.md
 
 # T-009 — README, summary, benchmark, package READMEs (last: also fixes cross-file anchors and deletes this file)
+
 README.md
 docs/PROJECT_SUMMARY.md
 docs/benchmark.md
