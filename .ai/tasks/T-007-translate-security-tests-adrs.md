@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | ready |
+| Status | in-review |
 | Assignee | Gemini |
 | Branch | `gemini/T-007` (from `master`) |
 | Related | `AGENTS.md` › Language · `.ai/translation-glossary.md` · `docs/05-security.md`, `docs/06-test-strategy.md`, `docs/adr/` |
@@ -97,12 +97,23 @@ Translate the Vietnamese text in the files below into English so that the reposi
 - `docs/05-security.md`: Trust boundaries diagram (`flowchart LR`). Checked subgraphs, node labels, and connection syntax. All labels are clean ASCII without special characters breaking syntax.
 - `docs/06-test-strategy.md`: Test pyramid diagram (`flowchart TB`) and CI pipeline diagram (`flowchart LR`). Verified multi-line labels (`<br/>`), quotes, and node connections.
 
+### Review fixes (.ai/reviews/T-007.md)
+- Converted headings in `docs/05-security.md` and `docs/06-test-strategy.md` to sentence case (SHOULD 1).
+- Clarified lock lease description ("Locks are time-limited (leases), easy to get wrong under GC pauses") and scheduler deadline claiming via `ZREM` ("the scheduler claiming deadlines via `ZREM`") in `docs/adr/ADR-005-redis-state-postgres-audit.md` (SHOULD 2).
+- Removed added word "tactical" in ADR-006 title and index entry in `docs/adr/README.md` (SHOULD 3).
+- Restored backticks for `protocol` package in ADR-007 title and index entry in `docs/adr/README.md` (SHOULD 4).
+- Removed redundant glossing in S and T headings in `docs/05-security.md` (NIT 5).
+- Changed "Compressed configuration for tests" to "Shortened configuration for tests" in `docs/06-test-strategy.md` (NIT 6).
+- Refined Turborepo description in `docs/06-test-strategy.md` to "Turborepo re-runs tasks only for packages affected by a change" (NIT 7).
+- Merged `master` into `gemini/T-007` and resolved `.language-allowlist` conflict by removing both conflicting blocks (11 files remaining on allowlist).
+
 ### Commands executed
 - `node` script to verify structural counts before vs after
-- `pnpm lint:language`
+- `pnpm lint:language` (passed; 11 files remaining on `.language-allowlist`)
 - `pnpm format:check`
 - `pnpm run check` (all 6 tasks passed: format:check, lint, lint:language, typecheck, depcruise, test:coverage)
 - `git diff --stat` and `git diff --word-diff`
+- `git merge master` and conflict resolution in `.language-allowlist`
 
 ### Unsure / Questions
 - None. All terminology aligned with `.ai/translation-glossary.md` and repository standards.
