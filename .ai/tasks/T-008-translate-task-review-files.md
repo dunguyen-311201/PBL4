@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | in-review |
+| Status | done |
 | Assignee | Gemini |
 | Branch | `gemini/T-008` (from `master`) |
 | Related | `AGENTS.md` › Language · `.ai/translation-glossary.md` · `.ai/tasks/TEMPLATE.md` (already English — use its headings) |
