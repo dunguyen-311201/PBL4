@@ -1,75 +1,75 @@
-# T-001 — Adapter hạ tầng đơn giản: clock, sinh mã/OTP/id, hasher argon2
+# T-001 — Simple infrastructure adapters: clock, code/OTP/ID generators, argon2 hasher
 
 | | |
 |---|---|
-| Trạng thái | done |
-| Người làm | Gemini |
-| Nhánh | `gemini/T-001` |
-| Liên quan | `docs/03-lld/session-access.md` §2, §4 · `docs/05-security.md` S1, I3 · FR-01 |
+| Status | done |
+| Assignee | Gemini |
+| Branch | `gemini/T-001` |
+| Related | `docs/03-lld/session-access.md` §2, §4 · `docs/05-security.md` S1, I3 · FR-01 |
 
-## Mục tiêu
-Hiện thực 5 port đã có ở tầng application bằng adapter thật, để Signaling API chạy được mà không cần fake. Đây là các adapter nhỏ, không có trạng thái.
+## Goal
+Implement the 5 existing application layer ports with real adapters so that the Signaling API can run without fakes. These are small, stateless adapters.
 
-## Đọc trước
+## Read first
 - `AGENTS.md`, `GEMINI.md`
 - `apps/server/src/session-access/application/ports/generators.ts`
 - `apps/server/src/session-access/application/ports/secret-hasher.ts`
-- `docs/03-lld/session-access.md` §2 (cây thư mục), §4 (ports)
+- `docs/03-lld/session-access.md` §2 (directory tree), §4 (ports)
 
-## Phạm vi (chỉ được tạo/sửa các file này)
+## Scope (only these files may be created or changed)
 - `apps/server/src/session-access/infrastructure/system-clock.ts` (+ `.test.ts`)
 - `apps/server/src/session-access/infrastructure/crypto/random-code.generator.ts` (+ `.test.ts`)
 - `apps/server/src/session-access/infrastructure/crypto/random-otp.generator.ts` (+ `.test.ts`)
 - `apps/server/src/session-access/infrastructure/crypto/uuid.generator.ts` (+ `.test.ts`)
 - `apps/server/src/session-access/infrastructure/crypto/argon2.hasher.ts` (+ `.test.ts`)
-- `apps/server/package.json` (chỉ thêm dependency bên dưới)
-- `pnpm-lock.yaml` (do pnpm tự cập nhật)
+- `apps/server/package.json` (only add the dependency below)
+- `pnpm-lock.yaml` (automatically updated by pnpm)
 
-## Dependency được phép thêm
-- `argon2` (dependency của `apps/server`) — đã được chọn trong LLD/ADR-004.
-- Ngoài ra **không** thêm gì. Dùng `node:crypto` cho phần ngẫu nhiên.
+## Allowed new dependencies
+- `argon2` (`apps/server` dependency) — already selected in LLD/ADR-004.
+- Otherwise add **nothing**. Use `node:crypto` for randomness.
 
-## Hợp đồng
+## Contract
 
-| Lớp | Hiện thực port | Hành vi |
+| Class | Port implemented | Behavior |
 |---|---|---|
-| `SystemClock` | `Clock` | `now()` trả `new Date()` |
-| `RandomCodeGenerator` | `CodeGenerator` | `next()` trả chuỗi 9 chữ số, chữ số đầu 1–9, dùng `crypto.randomInt` (không dùng `Math.random`) |
-| `RandomOtpGenerator` | `OtpGenerator` | `next()` trả chuỗi đúng 6 chữ số, **cho phép số 0 ở đầu** (`"000123"` hợp lệ), dùng `crypto.randomInt` |
-| `UuidGenerator` | `IdGenerator` | `uuid()` trả `crypto.randomUUID()` |
-| `Argon2Hasher` | `SecretHasher` | `hash(plain)` dùng **argon2id**; `verify(plain, hash)` trả `false` (không ném lỗi) khi `hash` sai định dạng; nhận tham số cấu hình `{ memoryCost, timeCost, parallelism }` qua constructor, mặc định theo khuyến nghị OWASP (memoryCost 19456 KiB, timeCost 2, parallelism 1) |
+| `SystemClock` | `Clock` | `now()` returns `new Date()` |
+| `RandomCodeGenerator` | `CodeGenerator` | `next()` returns a 9-digit string, first digit 1–9, using `crypto.randomInt` (do not use `Math.random`) |
+| `RandomOtpGenerator` | `OtpGenerator` | `next()` returns an exact 6-digit string, **leading zeros allowed** (`"000123"` is valid), using `crypto.randomInt` |
+| `UuidGenerator` | `IdGenerator` | `uuid()` returns `crypto.randomUUID()` |
+| `Argon2Hasher` | `SecretHasher` | `hash(plain)` uses **argon2id**; `verify(plain, hash)` returns `false` (does not throw) when `hash` is malformed; accepts `{ memoryCost, timeCost, parallelism }` configuration parameters via constructor, defaulting to OWASP recommendations (memoryCost 19456 KiB, timeCost 2, parallelism 1) |
 
-Mỗi lớp `implements` đúng port tương ứng (`import type` từ `../../application/ports/...`).
+Each class `implements` the exact corresponding port (`import type` from `../../application/ports/...`).
 
-## Tiêu chí chấp nhận
-- [x] `RandomCodeGenerator`: 10 000 lần gọi đều khớp `/^[1-9][0-9]{8}$/` và chấp nhận được bởi `SessionCode.of()`.
-- [x] `RandomOtpGenerator`: 10 000 lần gọi đều khớp `/^[0-9]{6}$/`; có test chứng minh số 0 đứng đầu được giữ nguyên (mock `randomInt` trả `123` → `"000123"`).
-- [x] Không file nào dùng `Math.random`.
-- [x] `Argon2Hasher.hash` trả chuỗi bắt đầu bằng `$argon2id$`; hash hai lần cùng một OTP ra hai chuỗi khác nhau (có salt).
-- [x] `verify` đúng → `true`; sai OTP → `false`; hash rác (`"not-a-hash"`) → `false`.
-- [x] Test của hasher dùng tham số nhỏ (ví dụ `memoryCost: 1024, timeCost: 1`) để chạy nhanh.
-- [x] `pnpm run check` xanh (gồm `dependency-cruiser`: infrastructure không bị domain/application import ngược).
+## Acceptance criteria
+- [x] `RandomCodeGenerator`: 10 000 calls all match `/^[1-9][0-9]{8}$/` and are accepted by `SessionCode.of()`.
+- [x] `RandomOtpGenerator`: 10 000 calls all match `/^[0-9]{6}$/`; has a test proving leading zeros are preserved (mock `randomInt` returning `123` → `"000123"`).
+- [x] No file uses `Math.random`.
+- [x] `Argon2Hasher.hash` returns a string starting with `$argon2id$`; hashing the same OTP twice produces two different strings (salted).
+- [x] `verify` correct → `true`; wrong OTP → `false`; garbage hash (`"not-a-hash"`) → `false`.
+- [x] Hasher tests use small parameters (e.g. `memoryCost: 1024, timeCost: 1`) to run fast.
+- [x] `pnpm run check` passes (including `dependency-cruiser`: infrastructure is not imported back by domain/application).
 
-## Test bắt buộc
-Mỗi adapter một file `*.test.ts` cạnh file nguồn, theo quy ước `docs/06-test-strategy.md` §5 (tên test mô tả hành vi, Arrange–Act–Assert).
+## Required tests
+One `*.test.ts` file per adapter alongside the source file, following the conventions of `docs/06-test-strategy.md` §5 (test names describe behavior, Arrange–Act–Assert).
 
-## Ngoài phạm vi
-- `JwtTokenService`, `RedisSessionRepository`, scheduler, NestJS module — task khác.
-- Sửa port, use case, domain hay tài liệu.
+## Out of scope
+- `JwtTokenService`, `RedisSessionRepository`, scheduler, NestJS module — other tasks.
+- Modifying ports, use cases, domain, or documentation.
 
-## Báo cáo của Gemini
+## Gemini report
 
-### Đã làm
-1. Cài đặt dependency `argon2` (^0.45.1) vào `apps/server`.
-2. Tạo 5 adapter hạ tầng cùng unit test tương ứng theo đúng hợp đồng các port:
-   - `SystemClock` (`system-clock.ts`, `system-clock.test.ts`): hiện thực port `Clock`, trả `new Date()`.
-   - `RandomCodeGenerator` (`random-code.generator.ts`, `random-code.generator.test.ts`): hiện thực port `CodeGenerator`, sinh mã 9 chữ số (chữ số đầu 1–9) dùng `crypto.randomInt`, chấp nhận bởi `SessionCode.of()`.
-   - `RandomOtpGenerator` (`random-otp.generator.ts`, `random-otp.generator.test.ts`): hiện thực port `OtpGenerator`, sinh OTP 6 chữ số (giữ số 0 ở đầu bằng `padStart(6, '0')`) dùng `crypto.randomInt`.
-   - `UuidGenerator` (`uuid.generator.ts`, `uuid.generator.test.ts`): hiện thực port `IdGenerator`, sinh UUID v4 bằng `crypto.randomUUID()`.
-   - `Argon2Hasher` (`argon2.hasher.ts`, `argon2.hasher.test.ts`): hiện thực port `SecretHasher`, hash bằng argon2id (OWASP defaults: memoryCost 19456 KiB, timeCost 2, parallelism 1), verify an toàn không ném exception khi hash sai định dạng.
-3. Quy trình TDD chặt chẽ: viết test trước (Red) -> hiện thực code tối thiểu (Green) -> format & typecheck.
+### What was done
+1. Installed dependency `argon2` (^0.45.1) in `apps/server`.
+2. Created 5 infrastructure adapters along with corresponding unit tests following the exact contracts of the ports:
+   - `SystemClock` (`system-clock.ts`, `system-clock.test.ts`): implements the `Clock` port, returns `new Date()`.
+   - `RandomCodeGenerator` (`random-code.generator.ts`, `random-code.generator.test.ts`): implements the `CodeGenerator` port, generates a 9-digit code (first digit 1–9) using `crypto.randomInt`, accepted by `SessionCode.of()`.
+   - `RandomOtpGenerator` (`random-otp.generator.ts`, `random-otp.generator.test.ts`): implements the `OtpGenerator` port, generates a 6-digit OTP (preserving leading zeros with `padStart(6, '0')`) using `crypto.randomInt`.
+   - `UuidGenerator` (`uuid.generator.ts`, `uuid.generator.test.ts`): implements the `IdGenerator` port, generates UUID v4 using `crypto.randomUUID()`.
+   - `Argon2Hasher` (`argon2.hasher.ts`, `argon2.hasher.test.ts`): implements the `SecretHasher` port, hashes with argon2id (OWASP defaults: memoryCost 19456 KiB, timeCost 2, parallelism 1), verifies safely without throwing exceptions on malformed hashes.
+3. Strict TDD process: write tests first (Red) -> minimal implementation (Green) -> format & typecheck.
 
-### File đã tạo / sửa
+### Files created / changed
 - `apps/server/package.json`
 - `pnpm-lock.yaml`
 - `apps/server/src/session-access/infrastructure/system-clock.ts`
@@ -84,19 +84,19 @@ Mỗi adapter một file `*.test.ts` cạnh file nguồn, theo quy ước `docs/
 - `apps/server/src/session-access/infrastructure/crypto/argon2.hasher.test.ts`
 - `.ai/tasks/T-001-crypto-adapters.md`
 
-### Lệnh đã chạy
+### Commands run
 - `pnpm --filter @pbl4/server add argon2`
 - `pnpm --filter @pbl4/server test`
 - `pnpm format`
 - `pnpm lint`
 - `pnpm --filter @pbl4/server typecheck`
-- `pnpm run check` (tất cả các bước format, lint, typecheck, depcruise, test:coverage đều xanh 100%)
+- `pnpm run check` (all steps format, lint, typecheck, depcruise, test:coverage 100% green)
 
-### Cập nhật theo Review T-001
-1. **SHOULD 1 (Spy cleanup)**: Thay thế việc gọi `mockRestore()` thủ công ở cuối test bằng hook `afterEach(() => { vi.restoreAllMocks(); })` trong các file test `random-code.generator.test.ts`, `random-otp.generator.test.ts`, `uuid.generator.test.ts` để tránh rò rỉ mock khi có `expect` thất bại.
-2. **SHOULD 2 (Nguồn tham số Argon2)**: Điều chỉnh chú thích trong `argon2.hasher.ts` từ "OWASP minimum recommendations for Argon2id (RFC 9106)" thành "OWASP Password Storage Cheat Sheet minimum recommendations for Argon2id".
-3. **NIT 3 (Thứ tự dependencies)**: Đưa `dependencies` lên trước `devDependencies` trong `apps/server/package.json`.
-4. **NIT 4 (Chú thích error swallowing)**: Thêm chú thích trong `Argon2Hasher.verify` giải thích việc nuốt lỗi là chủ đích thiết kế để tránh văng ngoại lệ khi hash hỏng.
+### Updates following Review T-001
+1. **SHOULD 1 (Spy cleanup)**: Replaced manual `mockRestore()` calls at the end of tests with an `afterEach(() => { vi.restoreAllMocks(); })` hook in test files `random-code.generator.test.ts`, `random-otp.generator.test.ts`, `uuid.generator.test.ts` to avoid mock leakage when an `expect` fails.
+2. **SHOULD 2 (Argon2 parameter source)**: Adjusted comment in `argon2.hasher.ts` from "OWASP minimum recommendations for Argon2id (RFC 9106)" to "OWASP Password Storage Cheat Sheet minimum recommendations for Argon2id".
+3. **NIT 3 (Dependencies order)**: Moved `dependencies` before `devDependencies` in `apps/server/package.json`.
+4. **NIT 4 (Error swallowing comment)**: Added a comment in `Argon2Hasher.verify` clarifying that error swallowing is an intentional design choice to prevent throwing exceptions on corrupted hashes.
 
-### Điều chưa chắc chắn
-- Không có. Toàn bộ tiêu chí nghiệm thu đều đạt và có test chứng minh.
+### Unsure
+- None. All acceptance criteria met and verified by tests.
