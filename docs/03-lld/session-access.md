@@ -2,17 +2,17 @@
 
 | | |
 |---|---|
-| Trạng thái | v0.2 — domain + application đã implement (PR 2.3, 2.4) |
-| Cập nhật | 2026-10-23 |
-| Liên quan | [02-domain-model.md](../02-domain-model.md) · [04-protocol.md](../04-protocol.md) · ADR-004, ADR-005, ADR-006 |
+| Status | v0.2 — domain + application implemented (PR 2.3, 2.4) |
+| Updated | 2026-10-23 |
+| Related | [02-domain-model.md](../02-domain-model.md) · [04-protocol.md](../04-protocol.md) · ADR-004, ADR-005, ADR-006 |
 
-## 1. Trách nhiệm
+## 1. Responsibilities
 
-Hiện thực context **Session & Access**: tạo phiên, xác thực Join Request, Host duyệt, quản lý role, kết thúc và hết hạn phiên; cấp token; phát domain event; cung cấp `SessionAccessQuery` cho Signaling và Relay.
+Implement the **Session & Access** context: create sessions, authenticate Join Requests, host approval, manage roles, terminate and expire sessions; issue tokens; publish domain events; provide `SessionAccessQuery` for Signaling and Relay.
 
-Không làm: chuyển tiếp SDP/ICE (Signaling), chuyển frame (Relay), ghi audit (Audit — chỉ lắng nghe event).
+Does not do: relay SDP/ICE (Signaling), transfer frames (Relay), record audit logs (Audit — only listens to events).
 
-## 2. Cấu trúc thư mục
+## 2. Directory structure
 
 ```
 apps/server/src/
@@ -20,17 +20,17 @@ apps/server/src/
 ├─ app.module.ts
 ├─ shared/
 │  ├─ config/                       # @nestjs/config + zod validate env
-│  ├─ errors/domain-error.ts        # lớp cơ sở DomainError { code }
-│  ├─ errors/error-mapper.ts        # DomainError → { http, code } (bảng 04-protocol §7)
+│  ├─ errors/domain-error.ts        # base class DomainError { code }
+│  ├─ errors/error-mapper.ts        # DomainError → { http, code } (table 04-protocol §7)
 │  ├─ filters/http-exception.filter.ts
 │  ├─ filters/ws-exception.filter.ts
 │  └─ validation/zod.pipe.ts
 └─ session-access/
-   ├─ domain/                       # TypeScript thuần — KHÔNG import @nestjs, ioredis, jsonwebtoken
+   ├─ domain/                       # pure TypeScript — NO imports of @nestjs, ioredis, jsonwebtoken
    │  ├─ remote-session.ts          # aggregate root
    │  ├─ join-request.ts, viewer.ts
    │  ├─ value-objects/             # session-id, session-code, otp, otp-hash, participant-role
-   │  ├─ session-policy.ts          # hằng số nghiệp vụ (02 §4.3)
+   │  ├─ session-policy.ts          # business constants (02 §4.3)
    │  ├─ events.ts                  # union DomainEvent
    │  ├─ errors.ts                  # OtpMismatch, SessionLocked, NoPendingJoin, …
    │  └─ ports.ts                   # SecretVerifier (domain service interface)
@@ -47,7 +47,7 @@ apps/server/src/
    │  │  ├─ terminate-session.ts
    │  │  └─ process-due-deadlines.ts
    │  ├─ queries/session-access.query.ts
-   │  └─ support/with-retry.ts      # tải lại + thử lại 1 lần khi ConcurrencyConflict
+   │  └─ support/with-retry.ts      # reloads + retries once on ConcurrencyConflict
    ├─ infrastructure/
    │  ├─ redis/redis-session.repository.ts
    │  ├─ redis/redis-deadline.scheduler.ts
@@ -62,13 +62,13 @@ apps/server/src/
    ├─ presentation/
    │  ├─ sessions.controller.ts     # POST /v1/sessions, POST /v1/sessions/join
    │  ├─ session.gateway.ts         # namespace /session
-   │  ├─ ws-auth.middleware.ts      # xác thực handshake, gắn principal
+   │  ├─ ws-auth.middleware.ts      # authenticates handshake, attaches principal
    │  ├─ actor.guard.ts             # @Actor('host' | 'viewer')
-   │  └─ notifiers/participant.notifier.ts   # domain event → emit tới room
-   └─ session-access.module.ts      # nối port ↔ adapter bằng custom provider
+   │  └─ notifiers/participant.notifier.ts   # domain event → emit to room
+   └─ session-access.module.ts      # wires port ↔ adapter using custom providers
 ```
 
-## 3. Quy tắc phụ thuộc
+## 3. Dependency rules
 
 ```mermaid
 flowchart LR
@@ -78,18 +78,18 @@ flowchart LR
     I --> D
 ```
 
-- `domain` không phụ thuộc gì ngoài TypeScript chuẩn.
-- `application` chỉ biết interface (port), không biết Redis hay JWT.
-- `infrastructure` hiện thực port; `presentation` gọi use case.
-- Kiểm tra tự động bằng `dependency-cruiser` trong CI (rule: `domain` không được import `application|infrastructure|presentation|@nestjs|ioredis|jsonwebtoken|argon2`).
+- `domain` depends on nothing outside standard TypeScript.
+- `application` knows only interfaces (ports), with no knowledge of Redis or JWT.
+- `infrastructure` implements ports; `presentation` calls use cases.
+- Automated verification via `dependency-cruiser` in CI (rule: `domain` must not import `application|infrastructure|presentation|@nestjs|ioredis|jsonwebtoken|argon2`).
 
 ## 4. Ports
 
 ```ts
 // application/ports
-interface SessionRepository { /* xem 02-domain-model §6 */ }
+interface SessionRepository { /* see 02-domain-model §6 */ }
 
-interface SecretHasher {            // hiện thực SecretVerifier của domain
+interface SecretHasher {            // implements SecretVerifier of domain
   hash(plain: string): Promise<string>;
   verify(plain: string, hash: string): Promise<boolean>;   // constant-time
 }
@@ -103,63 +103,63 @@ interface TokenService {
   issueHost(sessionId: SessionId, expiresAt: Date): string;
   issuePending(sessionId: SessionId, joinRequestId: JoinRequestId, expiresAt: Date): string;
   issueViewer(sessionId: SessionId, viewerId: ViewerId, expiresAt: Date): string;
-  verify(token: string): Principal;                         // ném UnauthorizedError
+  verify(token: string): Principal;                         // throws UnauthorizedError
 }
 
 interface EventPublisher { publish(events: DomainEvent[]): Promise<void> }
 
 interface DeadlineScheduler {
-  /** Đặt (ghi đè) mốc kiểm tra kế tiếp của phiên; dùng cho hết hạn, timeout duyệt và cảnh báo. */
+  /** Sets (overwrites) the session's next check deadline; used for expiration, approval timeout, and warnings. */
   schedule(sessionId: SessionId, at: Date, kind: "check" | "warn"): Promise<void>;
   cancel(sessionId: SessionId): Promise<void>;
 }
 ```
 
-`SecretVerifier` của domain chỉ có `verify` và là đồng bộ về mặt khái niệm; vì argon2 là async, `requestJoin` của aggregate nhận **kết quả** so khớp (`otpMatches: boolean`) do use case tính trước. Domain vẫn quyết định đúng/sai thế nào (đếm lỗi, khoá, hết hạn, đã dùng); việc băm nằm ngoài.
+`SecretVerifier` in the domain only contains `verify` and is conceptually synchronous; because argon2 is async, `requestJoin` on the aggregate receives the match **result** (`otpMatches: boolean`) precalculated by the use case. The domain still determines correctness (error counting, locking, expiration, consumption); hashing remains outside.
 
 ## 5. Use cases
 
-Mọi use case nhận `actor: Principal` (từ token) và trả kết quả hoặc ném `DomainError`. Khuôn chung:
+Every use case receives `actor: Principal` (from the token) and returns a result or throws `DomainError`. Common template:
 
 ```ts
 async execute(cmd) {
-  return withRetry(async () => {                    // tối đa 2 lần nếu ConcurrencyConflict
+  return withRetry(async () => {                    // up to 2 attempts on ConcurrencyConflict
     const session = await repo.findById(cmd.sessionId) ?? throwSessionClosed();
     assertActor(cmd.actor, session);                // I5
     const expected = session.version;
     session.<command>(…, clock.now());
     await repo.save(session, expected);
-    await scheduler.schedule(…);                    // cập nhật mốc thời gian
+    await scheduler.schedule(…);                    // updates deadline
     await publisher.publish(session.pullEvents());
     return <dto>;
   });
 }
 ```
 
-| Use case | Actor | Bước chính | Kết quả | Lỗi |
+| Use case | Actor | Key steps | Result | Errors |
 |---|---|---|---|---|
-| **CreateSession** | ẩn danh (rate limit) | sinh `code` → `reserveCode` (thử tối đa 5 lần) → sinh OTP → hash → `RemoteSession.create` → save → schedule `check` tại `waitingExpiresAt` → token Host | `{ sessionId, code, otp, …, hostToken }` | `CODE_SPACE_EXHAUSTED` |
-| **RequestJoin** | ẩn danh (rate limit) | `findByCode` → nếu không có: ném `InvalidCredentials` → verify OTP → `session.requestJoin(otpMatches, ip, now)` → save → schedule `check` tại `decisionDeadline` → token pending | `{ joinRequestId, pendingToken, decisionDeadline }` | tất cả thất bại xác thực → `INVALID_CREDENTIALS` |
-| **ApproveJoin** | host | `approveJoin(jrId, role, newViewerId, now)` → save → schedule `warn` tại `activeExpiresAt − 5'` và `check` tại `activeExpiresAt` | `{ viewerId, activeExpiresAt }`; notifier gửi `join.approved` kèm `viewerToken` + `iceServers` | `NO_PENDING_JOIN`, `JOIN_REQUEST_EXPIRED` |
-| **RejectJoin** | host | `rejectJoin(jrId, now)` → save → schedule `check` tại `waitingExpiresAt` | `{}` | `NO_PENDING_JOIN` |
-| **RegenerateOtp** | host | sinh OTP → hash → `regenerateOtp(otpHash, now)` → save | `{ otp, otpExpiresAt }` | `JOIN_ALREADY_PENDING`, `SESSION_OCCUPIED` |
+| **CreateSession** | anonymous (rate limited) | generate `code` → `reserveCode` (up to 5 attempts) → generate OTP → hash → `RemoteSession.create` → save → schedule `check` at `waitingExpiresAt` → Host token | `{ sessionId, code, otp, …, hostToken }` | `CODE_SPACE_EXHAUSTED` |
+| **RequestJoin** | anonymous (rate limited) | `findByCode` → if not found: throw `InvalidCredentials` → verify OTP → `session.requestJoin(otpMatches, ip, now)` → save → schedule `check` at `decisionDeadline` → pending token | `{ joinRequestId, pendingToken, decisionDeadline }` | all authentication failures → `INVALID_CREDENTIALS` |
+| **ApproveJoin** | host | `approveJoin(jrId, role, newViewerId, now)` → save → schedule `warn` at `activeExpiresAt − 5'` and `check` at `activeExpiresAt` | `{ viewerId, activeExpiresAt }`; notifier sends `join.approved` with `viewerToken` + `iceServers` | `NO_PENDING_JOIN`, `JOIN_REQUEST_EXPIRED` |
+| **RejectJoin** | host | `rejectJoin(jrId, now)` → save → schedule `check` at `waitingExpiresAt` | `{}` | `NO_PENDING_JOIN` |
+| **RegenerateOtp** | host | generate OTP → hash → `regenerateOtp(otpHash, now)` → save | `{ otp, otpExpiresAt }` | `JOIN_ALREADY_PENDING`, `SESSION_OCCUPIED` |
 | **ChangeViewerRole** | host | `changeRole(role, now)` → save | `{ role }` | `NO_VIEWER` |
-| **TerminateSession** | host, viewer | `terminate(by, reason, now)` → save → `scheduler.cancel` → `repo` đặt TTL ngắn (60s) để socket kịp nhận thông báo | `{}` | `SESSION_CLOSED` |
-| **ProcessDueDeadlines** | hệ thống | với mỗi phiên đến hạn: `kind=warn` → publish `SessionExpiring`; `kind=check` → `checkExpiry(now)` → save → publish | — | bỏ qua `SESSION_CLOSED` |
+| **TerminateSession** | host, viewer | `terminate(by, reason, now)` → save → `scheduler.cancel` → `repo` sets short TTL (60s) for sockets to receive notifications in time | `{}` | `SESSION_CLOSED` |
+| **ProcessDueDeadlines** | system | for each due session: `kind=warn` → publish `SessionExpiring`; `kind=check` → `checkExpiry(now)` → save → publish | — | ignores `SESSION_CLOSED` |
 
-**Vì sao RequestJoin ném `InvalidCredentials` trước khi verify khi không tìm thấy mã?** Thời gian phản hồi khác nhau có thể làm lộ "mã có tồn tại hay không". Use case vẫn chạy một phép `verify` giả với hash cố định khi không tìm thấy phiên để thời gian phản hồi tương đương (chống timing attack).
+**Why does RequestJoin throw `InvalidCredentials` before verification when code is not found?** Differing response times could reveal whether a code exists. The use case still executes a dummy `verify` with a fixed dummy hash when the session is not found so response times remain equivalent (timing attack mitigation).
 
-`SessionExpiring` là **application event** (không phải domain event) vì nó không làm đổi trạng thái aggregate.
+`SessionExpiring` is an **application event** (not a domain event) because it does not alter aggregate state.
 
-**Điều chỉnh khi implement (PR 2.4):**
-- Lệnh của Host/Viewer **không** nhận `sessionId` riêng: phiên luôn là phiên ghi trong token của người gọi, nên không thể "nhắm" vào phiên khác. Use case chỉ kiểm tra loại actor (`assertHost`, `assertHostOrViewer`).
-- `ApproveJoin` trả luôn `viewerToken` (thay vì để notifier tự cấp), để việc cấp token nằm trong use case và test được.
-- Helper `commit(session, expectedVersion)`: không làm gì nếu `version` không đổi; nếu đổi thì `save` → hẹn `scheduler` theo `session.nextCheckAt()` (hoặc `cancel` khi phiên đã đóng) → `publish`.
-- Domain có thêm `nextCheckAt()`: mốc sớm nhất mà `checkExpiry` có thể đổi trạng thái. Use case không tự tính deadline.
-- `ProcessDueDeadlines.execute(due[])` xử lý từng mốc độc lập và **trả về danh sách lỗi hạ tầng** để scheduler thử lại sau; lỗi nghiệp vụ (phiên đã đóng, id sai) bị bỏ qua.
-- `hostToken` hết hạn sau `WAITING_TTL + MAX_ACTIVE_DURATION`. Hạn chế đã biết: nếu Host tạo OTP mới nhiều lần (D6), phiên có thể sống lâu hơn token — sẽ xử lý bằng cơ chế làm mới token qua WS ở PR gateway.
+**Adjustments during implementation (PR 2.4):**
+- Host/Viewer commands do **not** take a separate `sessionId`: the session is always the one recorded in the caller's token, preventing targeting another session. The use case only validates the actor kind (`assertHost`, `assertHostOrViewer`).
+- `ApproveJoin` directly returns `viewerToken` (instead of letting the notifier issue it), keeping token issuance inside the use case and testable.
+- Helper `commit(session, expectedVersion)`: does nothing if `version` has not changed; if changed: `save` → schedule `scheduler` per `session.nextCheckAt()` (or `cancel` when the session is closed) → `publish`.
+- Domain adds `nextCheckAt()`: the earliest deadline at which `checkExpiry` can transition state. The use case does not calculate deadlines manually.
+- `ProcessDueDeadlines.execute(due[])` processes each deadline independently and **returns a list of infrastructure errors** for the scheduler to retry later; business errors (session closed, bad id) are ignored.
+- `hostToken` expires after `WAITING_TTL + MAX_ACTIVE_DURATION`. Known limitation: if the Host regenerates the OTP multiple times (D6), the session may outlive the token — to be addressed via token refresh over WS in the gateway PR.
 
-### 5.1 Sequence nội bộ — RequestJoin
+### 5.1 Internal sequence — RequestJoin
 
 ```mermaid
 sequenceDiagram
@@ -173,7 +173,7 @@ sequenceDiagram
     participant Q as DeadlineScheduler
     participant E as EventPublisher
 
-    C->>T: kiểm tra 5/IP/phút
+    C->>T: check 5/IP/min
     T-->>C: ok
     C->>U: execute({ code, otp, ip })
     U->>R: findByCode(code)
@@ -181,57 +181,57 @@ sequenceDiagram
     U->>H: verify(otp, session.otp.hash)
     H-->>U: otpMatches
     U->>S: requestJoin(otpMatches, ip, now)
-    S-->>U: JoinRequest (hoặc ném DomainError, đã ghi event lỗi)
+    S-->>U: JoinRequest (or throws DomainError, error event recorded)
     U->>R: save(session, expected = n)
-    alt version khác n
+    alt version differs from n
         R-->>U: ConcurrencyConflict
-        U->>U: tải lại, thử lại 1 lần
+        U->>U: reload, retry once
     end
     U->>Q: schedule(check, decisionDeadline)
     U->>E: publish(pullEvents())
     U-->>C: { joinRequestId, pendingToken, decisionDeadline }
 ```
 
-Lưu ý: khi OTP sai, aggregate **vẫn thay đổi** (tăng bộ đếm, có thể chuyển `Locked`), nên use case phải `save` và `publish` trước khi ném lỗi ra ngoài. Aggregate trả về kết quả dạng `{ ok: false, error }` cho lệnh này thay vì ném ngay, để use case lưu trạng thái rồi mới ném.
+Note: on an incorrect OTP, the aggregate **still changes** (increments counter, may transition to `Locked`), so the use case must `save` and `publish` before throwing the error externally. The aggregate returns `{ ok: false, error }` for this command instead of throwing immediately, enabling the use case to persist state before throwing.
 
 ## 6. Presentation
 
 ### 6.1 REST — `SessionsController`
-- `POST /v1/sessions` → `CreateSession`; throttle 10/IP/phút.
-- `POST /v1/sessions/join` → `ZodPipe(JoinRequestBody)` → `RequestJoin`; throttle 5/IP/phút (`@nestjs/throttler` với storage Redis để đếm chung giữa các instance).
-- `HttpExceptionFilter` dùng `error-mapper` để trả `{ code, message }`; lỗi không xác định → `INTERNAL` + log `requestId`.
-- IP lấy từ `X-Forwarded-For` **chỉ khi** request đi qua proxy tin cậy (`app.set('trust proxy', 1)`).
+- `POST /v1/sessions` → `CreateSession`; throttle 10/IP/min.
+- `POST /v1/sessions/join` → `ZodPipe(JoinRequestBody)` → `RequestJoin`; throttle 5/IP/min (`@nestjs/throttler` with Redis storage to share counts across instances).
+- `HttpExceptionFilter` uses `error-mapper` to return `{ code, message }`; unhandled errors → `INTERNAL` + log `requestId`.
+- IP extracted from `X-Forwarded-For` **only when** request passes through a trusted proxy (`app.set('trust proxy', 1)`).
 
 ### 6.2 WebSocket — `SessionGateway`
-- `@WebSocketGateway({ namespace: '/session', maxHttpBufferSize: 1e6 })`, Socket.IO Redis adapter để emit tới room từ bất kỳ instance nào.
-- `WsAuthMiddleware` (handshake): kiểm tra `protocolVersion`, `TokenService.verify`, kiểm tra phiên còn sống, gắn `socket.data.principal`, join room theo 04-protocol §4.1, thay socket cũ cùng vai trò.
-- Mỗi handler: `@Actor('host')` → `ZodPipe(schema)` → use case → trả `Ack`.
-- `WsExceptionFilter` chuyển mọi lỗi thành `{ ok: false, error }` trong ack, không bao giờ để exception làm rơi kết nối.
-- `handleDisconnect`: socket Viewer ngắt **không** kết thúc phiên ngay; chờ 15 giây để kết nối lại (mạng chập chờn), quá hạn thì gọi `TerminateSession(by: viewer, reason: "disconnected")` (D3).
+- `@WebSocketGateway({ namespace: '/session', maxHttpBufferSize: 1e6 })`, Socket.IO Redis adapter to emit to rooms from any instance.
+- `WsAuthMiddleware` (handshake): checks `protocolVersion`, `TokenService.verify`, verifies session is alive, attaches `socket.data.principal`, joins room per 04-protocol §4.1, replaces existing socket with same role.
+- Each handler: `@Actor('host')` → `ZodPipe(schema)` → use case → returns `Ack`.
+- `WsExceptionFilter` converts all errors to `{ ok: false, error }` in ack, never letting exceptions drop the connection.
+- `handleDisconnect`: Viewer socket disconnect does **not** terminate the session immediately; waits 15 seconds for reconnect (flaky network), on timeout calls `TerminateSession(by: viewer, reason: "disconnected")` (D3).
 
 ### 6.3 Notifier
-`ParticipantNotifier` lắng nghe domain/application event và emit:
+`ParticipantNotifier` listens to domain/application events and emits:
 
 | Event | Emit |
 |---|---|
 | `JoinRequested` | `s:{id}:host` ← `join.requested` |
-| `JoinApproved` | `jr:{jrId}` ← `join.approved` (kèm `viewerToken`, `iceServers` sinh tại đây) |
+| `JoinApproved` | `jr:{jrId}` ← `join.approved` (with `viewerToken`, `iceServers` generated here) |
 | `JoinRejected` | `jr:{jrId}` ← `join.rejected` |
 | `SessionLocked` | host ← `session.locked` |
-| `ViewerRoleChanged` | viewer **và** host ← `viewer.role.changed` |
+| `ViewerRoleChanged` | viewer **and** host ← `viewer.role.changed` |
 | `SessionExpiring` | host, viewer ← `session.expiring` |
-| `SessionTerminated` / `SessionExpired` | host, viewer (, pending) ← sự kiện tương ứng, sau đó `disconnectSockets()` cho các room của phiên |
+| `SessionTerminated` / `SessionExpired` | host, viewer (, pending) ← corresponding event, followed by `disconnectSockets()` for the session's rooms |
 
-## 7. Lưu trữ Redis
+## 7. Redis storage
 
-| Khoá | Kiểu | Nội dung | TTL |
+| Key | Type | Content | TTL |
 |---|---|---|---|
-| `sess:{id}` | string (JSON) | Aggregate đã serialize, có `version` | hạn trạng thái hiện tại + 5 phút |
-| `code:{code}` | string | `sessionId` | như trên; xoá khi phiên kết thúc |
+| `sess:{id}` | string (JSON) | Serialized aggregate, includes `version` | current state deadline + 5 minutes |
+| `code:{code}` | string | `sessionId` | as above; deleted when session terminates |
 | `deadlines` | sorted set | member `"{id}:{kind}"`, score = epoch ms | — |
-| `throttle:*` | do throttler quản lý | | |
+| `throttle:*` | managed by throttler | | |
 
-`save-session.lua` (nguyên tử):
+`save-session.lua` (atomic):
 ```lua
 -- KEYS[1] = sess:{id}; ARGV[1] = expectedVersion; ARGV[2] = json; ARGV[3] = ttlSeconds
 local current = redis.call('GET', KEYS[1])
@@ -244,61 +244,61 @@ end
 redis.call('SET', KEYS[1], ARGV[2], 'EX', ARGV[3])
 return 1
 ```
-Trả `0` → repository ném `ConcurrencyConflict`. Khi phiên đã chuyển `Terminated/Expired`, repository xoá `code:{code}` để mã có thể được dùng lại.
+Returns `0` → repository throws `ConcurrencyConflict`. When the session transitions to `Terminated/Expired`, the repository deletes `code:{code}` so the code can be reused.
 
-**Đã implement (PR 2.5):**
-- Script nằm trong `infrastructure/redis/save-session.lua.ts` (chuỗi TypeScript thay vì file `.lua` để không phải copy asset khi build); gọi bằng `EVAL` với 2 khoá `sess:{id}`, `code:{code}`.
-- TTL = thời gian tới `session.nextCheckAt()` (theo `Clock` được inject) + 5 phút đệm; phiên đã đóng giữ 60 giây. Khoá `code:` được gia hạn cùng TTL với phiên.
-- Phiên đóng chỉ xoá `code:{code}` nếu khoá đó **vẫn trỏ về chính phiên này**, tránh xoá nhầm mã đã được phiên khác giữ.
-- `RedisDeadlineScheduler.claimDue(now, limit)` hiện thực bước 1–2 của §8; vòng `@Interval` và việc đặt lại mốc lỗi sẽ nằm trong module NestJS.
-- Chưa hỗ trợ Redis Cluster (hai khoá trong một script có thể khác slot); dùng hash tag `{id}` nếu cần sau này.
+**Implemented (PR 2.5):**
+- Script resides in `infrastructure/redis/save-session.lua.ts` (TypeScript string instead of `.lua` file to avoid copying assets during build); invoked via `EVAL` with 2 keys: `sess:{id}`, `code:{code}`.
+- TTL = duration until `session.nextCheckAt()` (per injected `Clock`) + 5-minute buffer; closed sessions are retained for 60 seconds. The `code:` key is refreshed with the same TTL as the session.
+- Closed session only deletes `code:{code}` if the key **still points to this session**, preventing accidental deletion of a code already reserved by another session.
+- `RedisDeadlineScheduler.claimDue(now, limit)` implements steps 1–2 of §8; the `@Interval` loop and rescheduling failed deadlines will reside in the NestJS module.
+- Redis Cluster not yet supported (two keys in one script may hash to different slots); use hash tag `{id}` if needed later.
 
-## 8. Scheduler đa instance
+## 8. Multi-instance scheduler
 
-`RedisDeadlineScheduler` + `@Interval(1000)` trong `ProcessDueDeadlines`:
+`RedisDeadlineScheduler` + `@Interval(1000)` in `ProcessDueDeadlines`:
 1. `ZRANGEBYSCORE deadlines -inf now LIMIT 0 50`.
-2. Với mỗi member, **giành quyền xử lý** bằng `ZREM deadlines member` — chỉ instance nhận về `1` mới xử lý, nên không có hai instance cùng xử lý một mốc.
-3. Gọi use case tương ứng; nếu lỗi tạm thời (Redis), `ZADD` lại với score `now + 5s`.
+2. For each member, **claim processing ownership** via `ZREM deadlines member` — only the instance returning `1` processes it, preventing two instances from handling the same deadline.
+3. Call the corresponding use case; on transient errors (Redis), `ZADD` back with score `now + 5s`.
 
-Độ trễ hết hạn tối đa ~1 giây, đủ cho yêu cầu. TTL của Redis chỉ là lưới an toàn dọn rác, không phải cơ chế hết hạn chính.
+Maximum expiration latency is ~1 second, sufficient for requirements. Redis TTL is only a garbage collection safety net, not the primary expiration mechanism.
 
-## 9. Cấu hình
+## 9. Configuration
 
-| Biến | Ví dụ | Ghi chú |
+| Variable | Example | Notes |
 |---|---|---|
 | `PORT` | `3000` | |
 | `REDIS_URL` | `redis://redis:6379` | |
-| `DATABASE_URL` | `postgres://…` | Dùng bởi Audit |
-| `JWT_SECRET` | 32+ byte ngẫu nhiên | Bắt buộc; app không khởi động nếu thiếu/ngắn |
+| `DATABASE_URL` | `postgres://…` | Used by Audit |
+| `JWT_SECRET` | 32+ random bytes | Required; app will not start if missing/short |
 | `TURN_URLS` | `turn:turn.example.com:3478?transport=udp,…` | |
-| `TURN_SECRET` | | Dùng chung với coturn `static-auth-secret` |
+| `TURN_SECRET` | | Shared with coturn `static-auth-secret` |
 | `TRUST_PROXY` | `1` | |
-| `SESSION_POLICY_*` | | Ghi đè hằng số cho test e2e (ví dụ TTL ngắn) |
+| `SESSION_POLICY_*` | | Overrides constants for e2e tests (e.g. short TTL) |
 
-Toàn bộ env được validate bằng zod lúc khởi động.
+All environment variables are validated with zod at startup.
 
-## 10. Logging & quan sát
+## 10. Logging & observability
 
-- `nestjs-pino`, JSON, mỗi log có `requestId` hoặc `socketId` và `sessionId`.
+- `nestjs-pino`, JSON, every log includes `requestId` or `socketId` and `sessionId`.
 - `redact`: `otp`, `*.token`, `authorization`, `auth.token`.
-- Log ở mức `info` cho mọi domain event (đồng thời là nguồn của Audit), `warn` cho rate limit và `SessionLocked`.
+- Log at `info` level for all domain events (also serving as source for Audit), `warn` for rate limiting and `SessionLocked`.
 
-## 11. Kiểm thử (theo 06-test-strategy)
+## 11. Testing (per 06-test-strategy)
 
-| Tầng | Đối tượng | Cách làm |
+| Layer | Target | Approach |
 |---|---|---|
-| Unit — domain | `RemoteSession`, VO | 20 test ở 02-domain-model §8, table-driven theo §4.6; `SessionPolicy` với hằng số nhỏ |
-| Unit — application | từng use case | Port giả in-memory (`InMemorySessionRepository`, `FixedClock`, `FakeHasher`); kiểm tra thứ tự save → schedule → publish; kiểm tra thử lại khi `ConcurrencyConflict` |
-| Integration | `RedisSessionRepository`, `RedisDeadlineScheduler`, Lua script | Testcontainers Redis: xung đột version, hai `requestJoin` song song, giành quyền xử lý mốc giữa hai scheduler |
-| E2E — REST | `SessionsController` | Supertest + Testcontainers: tạo phiên, join sai/đúng, 6 lần sai → 401 + Host nhận `session.locked`, rate limit 429 |
-| E2E — WS | `SessionGateway` | `socket.io-client` thật: luồng đầy đủ tạo → join → duyệt → đổi role → terminate; token sai/hết hạn; Viewer gọi lệnh Host → `FORBIDDEN`; hai instance server dùng chung Redis adapter |
-| Architecture | quy tắc phụ thuộc | `dependency-cruiser` trong CI |
+| Unit — domain | `RemoteSession`, VO | 20 tests in 02-domain-model §8, table-driven per §4.6; `SessionPolicy` with small constants |
+| Unit — application | each use case | In-memory fake ports (`InMemorySessionRepository`, `FixedClock`, `FakeHasher`); verify save → schedule → publish order; verify retry on `ConcurrencyConflict` |
+| Integration | `RedisSessionRepository`, `RedisDeadlineScheduler`, Lua script | Testcontainers Redis: version conflict, two parallel `requestJoin` calls, claiming deadline ownership between two schedulers |
+| E2E — REST | `SessionsController` | Supertest + Testcontainers: create session, invalid/valid join, 6 failed attempts → 401 + Host receives `session.locked`, rate limit 429 |
+| E2E — WS | `SessionGateway` | Real `socket.io-client`: full flow create → join → approve → change role → terminate; invalid/expired token; Viewer calling Host command → `FORBIDDEN`; two server instances sharing Redis adapter |
+| Architecture | dependency rules | `dependency-cruiser` in CI |
 
-## 12. Thứ tự implement (map với kế hoạch Tuần 2)
+## 12. Implementation order (mapped to Week 2 plan)
 
 1. `shared/errors`, `domain/value-objects` + test.
-2. `RemoteSession` theo TDD (02 §8).
-3. Port + use case với adapter in-memory + test.
+2. `RemoteSession` via TDD (02 §8).
+3. Port + use case with in-memory adapter + test.
 4. `RedisSessionRepository` + Lua + integration test.
 5. `JwtTokenService`, `Argon2Hasher`, `RandomCodeGenerator`.
 6. Controller + throttler + e2e REST.
