@@ -7,7 +7,7 @@
 | Method | STRIDE per container and data flow |
 | Related | [01-hld.md](01-hld.md) · [04-protocol.md](04-protocol.md) · ADR-004 |
 
-## 1. Assets to Protect
+## 1. Assets to protect
 
 | Asset | Why it matters |
 |---|---|
@@ -17,7 +17,7 @@
 | Session Code + OTP, tokens | Key to obtaining the two assets above |
 | Signaling API availability | Without it, no one can connect |
 
-## 2. Trust Boundaries
+## 2. Trust boundaries
 
 ```mermaid
 flowchart LR
@@ -46,9 +46,9 @@ flowchart LR
 
 All data passing through B1, B2, B4 from the Viewer side is considered **untrusted**, even from an approved Viewer. B3 is protected so that web content in the renderer cannot reach Node.js.
 
-## 3. STRIDE Analysis
+## 3. STRIDE analysis
 
-### S — Spoofing (identity spoofing)
+### S — Spoofing
 
 | # | Threat | Mitigation | Requirement |
 |---|---|---|---|
@@ -63,7 +63,7 @@ All data passing through B1, B2, B4 from the Viewer side is considered **untrust
 
 Therefore, a 6-digit OTP (decision Q1) is sufficient when combined with the other layers.
 
-### T — Tampering (data tampering)
+### T — Tampering
 
 | # | Threat | Mitigation |
 |---|---|---|
@@ -107,7 +107,7 @@ Therefore, a 6-digit OTP (decision Q1) is sufficient when combined with the othe
 | E3 | Web content in Host renderer reaches Node.js (RCE) | `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`; preload exposes only select functions via `contextBridge`; validate IPC arguments; CSP blocks external scripts; no remote content loaded into Host window |
 | E4 | XSS on Viewer Web to steal tokens | React escapes by default; `dangerouslySetInnerHTML` prohibited; CSP; tokens stored only in memory |
 
-## 4. Residual Risks (Accepted in v1)
+## 4. Residual risks (accepted in v1)
 
 | Risk | Why accepted | Future mitigation |
 |---|---|---|
@@ -118,7 +118,7 @@ Therefore, a 6-digit OTP (decision Q1) is sufficient when combined with the othe
 | Single shared `JWT_SECRET`, manual rotation | Simple for v1 | Multi-key (`kid`) support |
 | Loss of audit events if process dies between save and publish | Accepted for v1 (02-domain-model §5) | Outbox pattern |
 
-## 5. Security Testing
+## 5. Security testing
 
 | Test | Layer |
 |---|---|
@@ -133,7 +133,7 @@ Therefore, a 6-digit OTP (decision Q1) is sufficient when combined with the othe
 | Electron configuration correct (`contextIsolation`, `sandbox`, no `nodeIntegration`) | Unit test verifying `BrowserWindow` creation options |
 | `npm audit`/Dependabot report no high-severity vulnerabilities | CI |
 
-## 6. Deployment Checklist
+## 6. Deployment checklist
 
 - [ ] HTTPS/WSS mandatory; HTTP redirects to HTTPS; HSTS.
 - [ ] `JWT_SECRET`, `TURN_SECRET` generated randomly, stored outside repo.

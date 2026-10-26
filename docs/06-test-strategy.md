@@ -12,7 +12,7 @@
 - Fast tests at lower layers, few but realistic tests at upper layers.
 - Tests as living documentation: reading a test name reveals the business rule.
 
-## 2. Test Pyramid
+## 2. Test pyramid
 
 ```mermaid
 flowchart TB
@@ -40,16 +40,16 @@ flowchart TB
 
 **A single test runner for the entire monorepo:** Vitest (NestJS uses `unplugin-swc` for decorator metadata support). Rationale: consistent syntax, shared coverage configuration, fast, executes TypeScript directly.
 
-## 3. Design for Testability
+## 3. Design for testability
 
 - **Pure domain**: no I/O, no system clock; `now` and `SessionPolicy` passed in.
 - **Ports & adapters**: all I/O behind interfaces, with in-memory implementations for unit tests (`InMemorySessionRepository`, `FixedClock`, `FakeHasher`, `CollectingEventPublisher`, `ManualScheduler`).
 - **`packages/host-core`**: Host-side logic (input mapping, role verification, relay loop, signaling handling) isolated from Electron. Electron is solely an adapter (screen capture, robotjs). This enables:
   - unit testing all Host logic without Electron;
   - Playwright constructing a **fake host running in the browser** (using mocked `getDisplayMedia` + `host-core`) to test end-to-end WebRTC in CI.
-- **Compressed configuration for tests**: `SESSION_POLICY_*` variables allow second-granularity TTLs in e2e tests.
+- **Shortened configuration for tests**: `SESSION_POLICY_*` variables allow second-granularity TTLs in e2e tests.
 
-## 4. TDD Workflow
+## 4. TDD workflow
 
 1. Pick a row from the test list (02-domain-model §8 or the state transition table §4.6).
 2. **Red**: write a test, run it to verify it fails for the expected reason.
@@ -60,7 +60,7 @@ flowchart TB
 Apply strict TDD to: domain, use cases, input mapper, protocol schemas, Lua scripts (via integration tests).
 Do not enforce TDD for: framework glue code (Electron window, NestJS module configuration), UI layout. These parts are covered by e2e and smoke tests.
 
-## 5. Test Conventions
+## 5. Test conventions
 
 - Test names describe behavior using ubiquitous language: `it("locks the session after the 5th wrong OTP")`.
 - **Arrange – Act – Assert** structure, each test verifying a single behavior.
@@ -75,7 +75,7 @@ Do not enforce TDD for: framework glue code (Electron window, NestJS module conf
 - No `sleep` in tests; time controlled via `FixedClock` or shortened TTLs with conditional waits.
 - Each integration/e2e test generates its own isolated data (random sessionId), avoiding execution order dependencies.
 
-## 6. Traceability Matrix (Summary)
+## 6. Traceability matrix (summary)
 
 | Requirement | Primary test | Layer |
 |---|---|---|
@@ -116,9 +116,9 @@ flowchart LR
     E --> F[UI e2e Playwright]
     F --> G[build artifacts]
 ```
-Turborepo rebuilds only packages affected by changes.
+Turborepo re-runs tasks only for packages affected by a change.
 
-## 8. Manual Testing Checklist (Pre-Release)
+## 8. Manual testing checklist (pre-release)
 
 - [ ] Two machines on same LAN: WebRTC connects, display mode shows `webrtc`.
 - [ ] Two different networks (one machine on 4G): connects via TURN.

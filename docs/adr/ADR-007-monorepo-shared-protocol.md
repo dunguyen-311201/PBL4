@@ -1,4 +1,4 @@
-# ADR-007 — pnpm + Turborepo monorepo with shared protocol package
+# ADR-007 — pnpm + Turborepo monorepo with a shared `protocol` package
 
 | | |
 |---|---|

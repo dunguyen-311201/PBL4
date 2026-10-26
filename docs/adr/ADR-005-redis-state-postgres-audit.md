@@ -19,10 +19,10 @@ Sessions are short-lived (≤ 2h10m), require TTL, read on every WS command, and
 |---|---|---|---|
 | PostgreSQL for both session state (row lock) and audit | Single data source, transactions | No natural TTL; high read/write load for short-lived data; still needs Redis for adapter | Adds unnecessary complexity |
 | In-process memory + sticky session | Fast, simple | State lost on restart; cannot run multiple instances safely | Violates NFR-07 |
-| Redis lock (Redlock) instead of optimistic concurrency | Familiar | Locks have deadlines, prone to errors on GC pauses; actual conflicts are very rare | Optimistic is simple and sufficient |
+| Redis lock (Redlock) instead of optimistic concurrency | Familiar | Locks are time-limited (leases), easy to get wrong under GC pauses; actual conflicts are very rare | Optimistic is simple and sufficient |
 | Outbox pattern for events | No lost events | Needs outbox table + worker | Deferred: accept risk of losing audit events in v1 |
 
 ## Consequences
 - Positive: built-in TTL and atomicity; horizontal scaling requires only adding instances; clearly separates hot data (Redis) and history (Postgres).
 - Negative: Redis is a single point of failure (losing Redis = losing all running sessions, accepted for v1); two datastores to operate.
-- Follow-up actions: integration tests for Lua script and scheduler lock contention via `ZREM`; record outbox in "What I'd do next".
+- Follow-up actions: integration tests for Lua script and the scheduler claiming deadlines via `ZREM`; record outbox in "What I'd do next".

@@ -1,4 +1,4 @@
-# ADR-006 — Clean architecture, tactical DDD for Session & Access only
+# ADR-006 — Clean architecture, DDD for Session & Access only
 
 | | |
 |---|---|
