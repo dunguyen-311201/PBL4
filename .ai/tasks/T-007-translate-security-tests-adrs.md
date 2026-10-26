@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | in-review |
+| Status | done |
 | Assignee | Gemini |
 | Branch | `gemini/T-007` (from `master`) |
 | Related | `AGENTS.md` › Language · `.ai/translation-glossary.md` · `docs/05-security.md`, `docs/06-test-strategy.md`, `docs/adr/` |
