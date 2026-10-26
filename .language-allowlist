@@ -2,13 +2,6 @@
 # scripts/check-language.mjs fails if any OTHER file contains Vietnamese,
 # and also if a file listed here no longer does. This list may only shrink.
 
-# T-008 — task and review files
-.ai/reviews/T-001.md
-.ai/reviews/T-002.md
-.ai/tasks/T-001-crypto-adapters.md
-.ai/tasks/T-002-turn-credentials.md
-.ai/tasks/T-003-host-core-input.md
-.ai/tasks/T-004-dev-infrastructure.md
 
 # T-009 — README, summary, benchmark, package READMEs (last: also fixes cross-file anchors and deletes this file)
 README.md

@@ -1,31 +1,31 @@
-# T-002 — Danh sách ICE server và credential TURN tạm thời
+# T-002 — ICE server list and temporary TURN credentials
 
 | | |
 |---|---|
-| Trạng thái | done |
-| Người làm | Gemini |
-| Nhánh | `gemini/T-002` (tạo từ `master`) |
-| Liên quan | `docs/04-protocol.md` §4.4 (`join.approved.iceServers`) · `docs/05-security.md` D5 · ADR-002 · `docs/03-lld/session-access.md` §2, §9 |
+| Status | done |
+| Assignee | Gemini |
+| Branch | `gemini/T-002` (created from `master`) |
+| Related | `docs/04-protocol.md` §4.4 (`join.approved.iceServers`) · `docs/05-security.md` D5 · ADR-002 · `docs/03-lld/session-access.md` §2, §9 |
 
-## Mục tiêu
-Khi Host duyệt Viewer, server gửi kèm danh sách ICE server để hai bên thiết lập WebRTC. TURN dùng **credential tạm thời** theo chuẩn "TURN REST API" của coturn (`use-auth-secret`), hết hạn cùng phiên, để không ai dùng TURN của hệ thống như proxy miễn phí.
+## Goal
+When the Host approves a Viewer, the server includes a list of ICE servers so both sides can establish WebRTC. TURN uses **temporary credentials** following coturn's "TURN REST API" standard (`use-auth-secret`), expiring with the session, so no one can use the system's TURN as a free proxy.
 
-## Đọc trước
+## Read first
 - `AGENTS.md`, `GEMINI.md`
 - `docs/04-protocol.md` §4.4 — `iceServers: RTCIceServer[]`
-- `packages/protocol/src/ws/server-events.ts` — schema `IceServer` (để hiểu hình dạng dữ liệu; **không** import package này)
+- `packages/protocol/src/ws/server-events.ts` — schema `IceServer` (to understand the data shape; do **not** import this package)
 
-## Phạm vi (chỉ được tạo/sửa các file này)
-- `apps/server/src/session-access/application/ports/ice-server-provider.ts` — tạo đúng như mục Hợp đồng
-- `apps/server/src/session-access/application/ports/index.ts` — thêm một dòng export
+## Scope (only these files may be created or changed)
+- `apps/server/src/session-access/application/ports/ice-server-provider.ts` — create exactly as shown in Contract
+- `apps/server/src/session-access/application/ports/index.ts` — add a one-line export
 - `apps/server/src/session-access/infrastructure/turn/turn-ice-server.provider.ts` (+ `.test.ts`)
 
-## Dependency được phép thêm
-- Không có. Dùng `node:crypto` (`createHmac`).
+## Allowed new dependencies
+- None. Use `node:crypto` (`createHmac`).
 
-## Hợp đồng
+## Contract
 
-Port (tạo nguyên văn):
+Port (create verbatim):
 ```ts
 // apps/server/src/session-access/application/ports/ice-server-provider.ts
 export interface IceServer {
@@ -43,66 +43,66 @@ export interface IceServerProvider {
 Adapter:
 ```ts
 export interface TurnConfig {
-  readonly stunUrls: readonly string[];   // ví dụ ['stun:stun.l.google.com:19302']
-  readonly turnUrls: readonly string[];   // ví dụ ['turn:turn.example.com:3478?transport=udp', 'turns:turn.example.com:443?transport=tcp']
-  readonly turnSecret: string;            // = static-auth-secret của coturn
+  readonly stunUrls: readonly string[];   // e.g. ['stun:stun.l.google.com:19302']
+  readonly turnUrls: readonly string[];   // e.g. ['turn:turn.example.com:3478?transport=udp', 'turns:turn.example.com:443?transport=tcp']
+  readonly turnSecret: string;            // = static-auth-secret of coturn
 }
 export class TurnIceServerProvider implements IceServerProvider { constructor(config: TurnConfig) }
 ```
 
-Hành vi của `forSession(sessionId, expiresAt)`:
-1. Nếu `stunUrls` không rỗng → một phần tử `{ urls: stunUrls }` (không có username/credential).
-2. Nếu `turnUrls` không rỗng → một phần tử `{ urls: turnUrls, username, credential }` với:
-   - `username = "<expiresAt tính bằng giây Unix, làm tròn xuống>:<sessionId>"`
+Behavior of `forSession(sessionId, expiresAt)`:
+1. If `stunUrls` is not empty → one element `{ urls: stunUrls }` (without username/credential).
+2. If `turnUrls` is not empty → one element `{ urls: turnUrls, username, credential }` with:
+   - `username = "<expiresAt in Unix seconds, rounded down>:<sessionId>"`
    - `credential = base64( HMAC-SHA1( turnSecret, username ) )`
-3. Thứ tự: STUN trước, TURN sau. Danh sách rỗng thì bỏ phần tử tương ứng.
+3. Order: STUN first, TURN second. Omit the corresponding element if the list is empty.
 
-Constructor ném `Error` nếu `turnUrls` không rỗng mà `turnSecret` rỗng, hoặc nếu có URL không bắt đầu bằng `stun:`, `turn:` hay `turns:` (đúng loại cho từng danh sách: `stunUrls` chỉ `stun:`; `turnUrls` chỉ `turn:`/`turns:`).
+The constructor throws `Error` if `turnUrls` is not empty but `turnSecret` is empty, or if any URL does not start with `stun:`, `turn:` or `turns:` (appropriate type for each list: `stunUrls` only `stun:`; `turnUrls` only `turn:`/`turns:`).
 
-## Tiêu chí chấp nhận
-- [x] **Test vector** (bắt buộc khớp chính xác): `turnSecret = "s3cret-turn-key"`, `sessionId = "5b0c1a54-7f1e-4b8e-9f2a-1d3c4e5f6a7b"`, `expiresAt = 2026-10-24T12:00:00.000Z` → `username = "1792843200:5b0c1a54-7f1e-4b8e-9f2a-1d3c4e5f6a7b"`, `credential = "8jApRNGz7QzNfABPvnYe/VCOgqU="`.
-- [x] `expiresAt = 2026-10-24T12:00:00.900Z` cho cùng `username` như trên (làm tròn xuống).
-- [x] Chỉ có STUN → đúng một phần tử, không có `username`/`credential`.
-- [x] Chỉ có TURN → đúng một phần tử có `username` và `credential`.
-- [x] Cả hai rỗng → `[]`.
-- [x] Constructor ném lỗi cho: TURN có URL nhưng secret rỗng; `stunUrls` chứa URL `turn:`; `turnUrls` chứa URL `http:`.
-- [x] Không log và không đưa `turnSecret` vào bất kỳ giá trị trả về nào (test: `JSON.stringify(kết quả)` không chứa secret).
-- [x] `pnpm run check` xanh.
+## Acceptance criteria
+- [x] **Test vector** (must match exactly): `turnSecret = "s3cret-turn-key"`, `sessionId = "5b0c1a54-7f1e-4b8e-9f2a-1d3c4e5f6a7b"`, `expiresAt = 2026-10-24T12:00:00.000Z` → `username = "1792843200:5b0c1a54-7f1e-4b8e-9f2a-1d3c4e5f6a7b"`, `credential = "8jApRNGz7QzNfABPvnYe/VCOgqU="`.
+- [x] `expiresAt = 2026-10-24T12:00:00.900Z` produces the same `username` as above (rounded down).
+- [x] STUN only → exactly one element, without `username`/`credential`.
+- [x] TURN only → exactly one element with `username` and `credential`.
+- [x] Both empty → `[]`.
+- [x] Constructor throws an error for: TURN has URLs but secret is empty; `stunUrls` contains a `turn:` URL; `turnUrls` contains an `http:` URL.
+- [x] Does not log and does not include `turnSecret` in any return value (test: `JSON.stringify(result)` does not contain the secret).
+- [x] `pnpm run check` passes.
 
-## Test bắt buộc
-`turn-ice-server.provider.test.ts` theo `docs/06-test-strategy.md` §5; dùng `afterEach(() => { vi.restoreAllMocks(); })` nếu có mock.
+## Required tests
+`turn-ice-server.provider.test.ts` according to `docs/06-test-strategy.md` §5; use `afterEach(() => { vi.restoreAllMocks(); })` if mocking.
 
-## Ngoài phạm vi
-- Đọc biến môi trường `TURN_URLS`/`TURN_SECRET` (làm ở PR NestJS).
-- Gọi provider từ `ApproveJoin` hay gateway; cấu hình coturn; docker-compose.
-- Sửa use case, domain, protocol, tài liệu.
+## Out of scope
+- Reading environment variables `TURN_URLS`/`TURN_SECRET` (done in NestJS PR).
+- Calling the provider from `ApproveJoin` or gateway; configuring coturn; docker-compose.
+- Modifying use cases, domain, protocol, or documentation.
 
-## Báo cáo của Gemini
+## Gemini report
 
-### Đã làm
-1. Tạo port `IceServerProvider` và interface `IceServer` tại `apps/server/src/session-access/application/ports/ice-server-provider.ts` theo đúng hợp đồng.
-2. Re-export `ice-server-provider.js` trong `apps/server/src/session-access/application/ports/index.ts`.
-3. Viết unit test theo TDD trong `apps/server/src/session-access/infrastructure/turn/turn-ice-server.provider.test.ts` bao phủ 11 test cases:
-   - Khớp chính xác test vector (username dạng `<unixSeconds>:<sessionId>` và credential HMAC-SHA1 base64).
-   - Làm tròn xuống Unix seconds khi `expiresAt` có phần lẻ mili-giây.
-   - Trả về STUN only, TURN only, cả hai (đúng thứ tự STUN trước, TURN sau), hoặc mảng rỗng `[]` khi cả hai rỗng.
-   - Kiểm tra validate URL và secret trong constructor (ném `Error` khi URL sai scheme hoặc thiếu secret).
-   - Đảm bảo `turnSecret` không bị lọt vào giá trị trả về hay chuỗi JSON.
-   - Sử dụng `afterEach(() => { vi.restoreAllMocks(); })`.
-4. Hiện thực adapter `TurnIceServerProvider` tại `apps/server/src/session-access/infrastructure/turn/turn-ice-server.provider.ts`.
-5. Format code bằng prettier và kiểm tra toàn bộ suite `pnpm run check` đạt 100% xanh.
+### What was done
+1. Created port `IceServerProvider` and interface `IceServer` at `apps/server/src/session-access/application/ports/ice-server-provider.ts` according to the contract.
+2. Re-exported `ice-server-provider.js` in `apps/server/src/session-access/application/ports/index.ts`.
+3. Wrote unit tests following TDD in `apps/server/src/session-access/infrastructure/turn/turn-ice-server.provider.test.ts` covering 11 test cases:
+   - Exact match with test vector (username format `<unixSeconds>:<sessionId>` and credential HMAC-SHA1 base64).
+   - Rounding down Unix seconds when `expiresAt` has fractional milliseconds.
+   - Returning STUN only, TURN only, both (correct order: STUN first, TURN second), or empty array `[]` when both are empty.
+   - Validating URLs and secret in constructor (throws `Error` on invalid URL scheme or missing secret).
+   - Ensuring `turnSecret` is not leaked into the return value or JSON string.
+   - Using `afterEach(() => { vi.restoreAllMocks(); })`.
+4. Implemented adapter `TurnIceServerProvider` at `apps/server/src/session-access/infrastructure/turn/turn-ice-server.provider.ts`.
+5. Formatted code with prettier and verified the entire suite `pnpm run check` is 100% green.
 
-### File đã tạo / sửa
+### Files created / changed
 - `apps/server/src/session-access/application/ports/ice-server-provider.ts`
 - `apps/server/src/session-access/application/ports/index.ts`
 - `apps/server/src/session-access/infrastructure/turn/turn-ice-server.provider.ts`
 - `apps/server/src/session-access/infrastructure/turn/turn-ice-server.provider.test.ts`
 - `.ai/tasks/T-002-turn-credentials.md`
 
-### Lệnh đã chạy
+### Commands run
 - `pnpm --filter @pbl4/server test turn-ice-server.provider.test.ts`
 - `pnpm format`
 - `pnpm run check`
 
-### Điều chưa chắc chắn
-- Không có. Toàn bộ tiêu chí nghiệm thu đều đạt và có test chứng minh.
+### Unsure
+- None. All acceptance criteria met and verified by tests.
