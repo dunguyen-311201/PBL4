@@ -2,111 +2,111 @@
 
 | | |
 |---|---|
-| Trạng thái | Draft v0.1 |
-| Cập nhật | 2026-10-23 |
-| Liên quan | [02-domain-model.md §8](02-domain-model.md) · [03-lld/session-access.md §11](03-lld/session-access.md) · [05-security.md §5](05-security.md) |
+| Status | Draft v0.1 |
+| Updated | 2026-10-23 |
+| Related | [02-domain-model.md §8](02-domain-model.md) · [03-lld/session-access.md §11](03-lld/session-access.md) · [05-security.md §5](05-security.md) |
 
-## 1. Mục tiêu
+## 1. Goals
 
-- Mỗi yêu cầu (FR/NFR) và mỗi lỗi của bản 2021 (L1–L14) đều có ít nhất một test chứng minh.
-- Test nhanh ở tầng dưới, ít nhưng thật ở tầng trên.
-- Test là tài liệu sống: đọc tên test là biết luật nghiệp vụ.
+- Every requirement (FR/NFR) and every bug from the 2021 version (L1–L14) has at least one test proving it.
+- Fast tests at lower layers, few but realistic tests at upper layers.
+- Tests as living documentation: reading a test name reveals the business rule.
 
-## 2. Kim tự tháp test
+## 2. Test pyramid
 
 ```mermaid
 flowchart TB
-    M["Manual / smoke<br/>WebRTC thật qua 2 máy, NAT, fallback"]
-    U2["UI e2e — Playwright<br/>Viewer + fake host trên trình duyệt"]
-    E["API/WS e2e — Supertest + socket.io-client<br/>server thật + Redis/Postgres thật"]
+    M["Manual / smoke<br/>Real WebRTC across 2 machines, NAT, fallback"]
+    U2["UI e2e — Playwright<br/>Viewer + fake host in browser"]
+    E["API/WS e2e — Supertest + socket.io-client<br/>real server + real Redis/Postgres"]
     I["Integration — Testcontainers<br/>Redis repository, Lua, scheduler, audit"]
-    C["Contract — zod schema trong packages/protocol"]
-    U["Unit — domain, use case, mapper thuần<br/>(nhiều nhất, chạy trong vài giây)"]
+    C["Contract — zod schemas in packages/protocol"]
+    U["Unit — pure domain, use case, mapper<br/>(majority, runs in seconds)"]
     M --- U2 --- E --- I --- C --- U
 ```
 
-| Tầng | Phạm vi | Công cụ | Chạy khi | Thời gian mục tiêu |
+| Layer | Scope | Tool | Run on | Target duration |
 |---|---|---|---|---|
-| Unit | Domain `RemoteSession`, VO, use case với port giả, input mapper, toạ độ, phát hiện fallback | Vitest | Mỗi lần lưu file (watch), mỗi commit | < 10 giây |
-| Contract | Mọi schema trong `packages/protocol` với mẫu hợp lệ/không hợp lệ | Vitest + zod | Mỗi commit | < 5 giây |
-| Integration | `RedisSessionRepository`, Lua script, `RedisDeadlineScheduler`, audit Postgres, logger redact | Vitest + Testcontainers | Mỗi PR | < 2 phút |
-| API/WS e2e | Toàn bộ use case qua REST/WS, bảo mật (05 §5), 2 instance + Redis adapter | Vitest + Supertest + `socket.io-client` + Testcontainers | Mỗi PR | < 3 phút |
-| UI e2e | Viewer: nhập mã → chờ duyệt → nhận hình → gửi input; fallback relay | Playwright (Chromium, `--use-fake-ui-for-media-stream`) | Mỗi PR vào `develop` | < 5 phút |
-| Host smoke | Electron khởi động đúng cấu hình bảo mật, preload expose đúng API | Playwright `_electron` | Trước release | < 2 phút |
-| Manual | WebRTC giữa 2 máy thật, mạng khác nhau, TURN, mạng yếu, DPI 125–150% | Checklist §8 | Trước release | 30 phút |
-| Performance | fps, độ trễ, băng thông | Script đo + `getStats` | Tuần 5, trước release | — |
+| Unit | Domain `RemoteSession`, VOs, use cases with fake ports, input mapper, coordinates, fallback detection | Vitest | Every file save (watch), every commit | < 10 s |
+| Contract | Every schema in `packages/protocol` with valid/invalid samples | Vitest + zod | Every commit | < 5 s |
+| Integration | `RedisSessionRepository`, Lua scripts, `RedisDeadlineScheduler`, Postgres audit, logger redact | Vitest + Testcontainers | Every PR | < 2 min |
+| API/WS e2e | All use cases via REST/WS, security (05 §5), 2 instances + Redis adapter | Vitest + Supertest + `socket.io-client` + Testcontainers | Every PR | < 3 min |
+| UI e2e | Viewer: enter code → wait for approval → receive video → send input; fallback relay | Playwright (Chromium, `--use-fake-ui-for-media-stream`) | Every PR to `develop` | < 5 min |
+| Host smoke | Electron starts with correct security configuration, preload exposes correct APIs | Playwright `_electron` | Before release | < 2 min |
+| Manual | WebRTC between 2 real machines, different networks, TURN, poor network, DPI 125–150% | Checklist §8 | Before release | 30 min |
+| Performance | fps, latency, bandwidth | Benchmark script + `getStats` | Week 5, before release | — |
 
-**Test tích hợp** đặt tên `*.int.test.ts` trong `apps/*/test/integration/`, chạy bằng `pnpm test:integration` (không nằm trong `pnpm test` / `pnpm run check` để máy không có Docker vẫn chạy được). Redis lấy từ `REDIS_URL` nếu có (ví dụ `redis-server` cục bộ), không thì Testcontainers khởi động `redis:7-alpine`. Mỗi test dùng một tiền tố khoá ngẫu nhiên nên các file chạy song song trên cùng một Redis. Adapter chỉ được che bởi test tích hợp (hiện là `infrastructure/redis/**`) được loại khỏi ngưỡng coverage của unit test. CI chạy cả hai.
+**Integration tests** are named `*.int.test.ts` under `apps/*/test/integration/`, run with `pnpm test:integration` (excluded from `pnpm test` / `pnpm run check` so machines without Docker can still run). Redis is picked up from `REDIS_URL` if set (e.g. local `redis-server`), otherwise Testcontainers spins up `redis:7-alpine`. Each test uses a random key prefix so files run concurrently against the same Redis. Adapters covered only by integration tests (currently `infrastructure/redis/**`) are excluded from unit test coverage thresholds. CI runs both.
 
-**Một test runner cho cả monorepo:** Vitest (NestJS dùng `unplugin-swc` để hỗ trợ decorator metadata). Lý do: cùng cú pháp, cùng cấu hình coverage, nhanh, chạy được TypeScript trực tiếp.
+**A single test runner for the entire monorepo:** Vitest (NestJS uses `unplugin-swc` for decorator metadata support). Rationale: consistent syntax, shared coverage configuration, fast, executes TypeScript directly.
 
-## 3. Thiết kế để test được
+## 3. Design for testability
 
-- **Domain thuần**: không I/O, không đồng hồ hệ thống; `now` và `SessionPolicy` truyền vào.
-- **Port & adapter**: mọi I/O đi qua interface, có bản in-memory cho unit test (`InMemorySessionRepository`, `FixedClock`, `FakeHasher`, `CollectingEventPublisher`, `ManualScheduler`).
-- **`packages/host-core`**: logic phía Host (ánh xạ input, kiểm tra role, vòng lặp relay, xử lý signaling) tách khỏi Electron. Electron chỉ là adapter (chụp màn hình, robotjs). Nhờ vậy:
-  - unit test được toàn bộ logic Host mà không cần Electron;
-  - Playwright dựng được một **fake host chạy trong trình duyệt** (dùng `getDisplayMedia` giả + `host-core`) để test end-to-end WebRTC trong CI.
-- **Cấu hình rút gọn cho test**: biến `SESSION_POLICY_*` cho phép TTL tính bằng giây trong e2e.
+- **Pure domain**: no I/O, no system clock; `now` and `SessionPolicy` passed in.
+- **Ports & adapters**: all I/O behind interfaces, with in-memory implementations for unit tests (`InMemorySessionRepository`, `FixedClock`, `FakeHasher`, `CollectingEventPublisher`, `ManualScheduler`).
+- **`packages/host-core`**: Host-side logic (input mapping, role verification, relay loop, signaling handling) isolated from Electron. Electron is solely an adapter (screen capture, robotjs). This enables:
+  - unit testing all Host logic without Electron;
+  - Playwright constructing a **fake host running in the browser** (using mocked `getDisplayMedia` + `host-core`) to test end-to-end WebRTC in CI.
+- **Shortened configuration for tests**: `SESSION_POLICY_*` variables allow second-granularity TTLs in e2e tests.
 
-## 4. Quy trình TDD
+## 4. TDD workflow
 
-1. Chọn một dòng trong danh sách test (02-domain-model §8 hoặc bảng chuyển trạng thái §4.6).
-2. **Red**: viết test, chạy để thấy nó fail đúng lý do.
-3. **Green**: viết code tối thiểu để pass.
-4. **Refactor**: dọn code và test, giữ xanh.
-5. Commit nhỏ: `test(session): …` rồi `feat(session): …`, hoặc gộp nếu rất nhỏ.
+1. Pick a row from the test list (02-domain-model §8 or the state transition table §4.6).
+2. **Red**: write a test, run it to verify it fails for the expected reason.
+3. **Green**: write the minimum code to make it pass.
+4. **Refactor**: clean up code and tests, keep green.
+5. Small commits: `test(session): …` then `feat(session): …`, or combined if very small.
 
-Áp dụng TDD chặt cho: domain, use case, input mapper, schema protocol, Lua script (qua integration test).
-Không ép TDD cho: code kết nối thư viện (Electron window, cấu hình NestJS module), UI layout. Những phần này được che bởi e2e và smoke test.
+Apply strict TDD to: domain, use cases, input mapper, protocol schemas, Lua scripts (via integration tests).
+Do not enforce TDD for: framework glue code (Electron window, NestJS module configuration), UI layout. These parts are covered by e2e and smoke tests.
 
-## 5. Quy ước viết test
+## 5. Test conventions
 
-- Tên test mô tả hành vi bằng ngôn ngữ domain: `it("locks the session after the 5th wrong OTP")`.
-- Cấu trúc **Arrange – Act – Assert**, mỗi test kiểm một hành vi.
-- **Test data builder** thay cho fixture lớn:
+- Test names describe behavior using ubiquitous language: `it("locks the session after the 5th wrong OTP")`.
+- **Arrange – Act – Assert** structure, each test verifying a single behavior.
+- **Test data builders** instead of large fixtures:
   ```ts
   const session = aSession().waitingForViewer().withFailedAttempts(4).build();
   ```
-- **Table-driven** cho ma trận lệnh × trạng thái (02 §4.6) và bảng ánh xạ phím:
+- **Table-driven** for command × state matrix (02 §4.6) and key mapping table:
   ```ts
   it.each(transitions)("$command in $status → $expected", ({ … }) => { … });
   ```
-- Không dùng `sleep` trong test; thời gian được điều khiển bằng `FixedClock` hoặc TTL rút gọn kèm chờ theo điều kiện.
-- Mỗi test integration/e2e tự tạo dữ liệu riêng (sessionId ngẫu nhiên), không phụ thuộc thứ tự chạy.
+- No `sleep` in tests; time controlled via `FixedClock` or shortened TTLs with conditional waits.
+- Each integration/e2e test generates its own isolated data (random sessionId), avoiding execution order dependencies.
 
-## 6. Ma trận truy vết (rút gọn)
+## 6. Traceability matrix (summary)
 
-| Yêu cầu | Test chính | Tầng |
+| Requirement | Primary test | Layer |
 |---|---|---|
-| FR-01, FR-08 | Tạo phiên, hết hạn sau WAITING_TTL | Unit + E2E |
-| FR-03, FR-03a | Join đúng/sai, khoá sau 5 lần | Unit + E2E |
-| FR-04, FR-05, D1, D2 | Duyệt/từ chối, OTP tiêu thụ khi xin vào, timeout 60s | Unit + E2E WS |
-| FR-09, I1 | Hai Join Request song song chỉ một thành công | Integration |
-| FR-09a | Cảnh báo trước 5 phút, hết hạn sau 2 giờ | Unit + Integration scheduler |
-| FR-11 | Fallback khi ICE fail | UI e2e (chặn ICE bằng cấu hình) |
-| FR-20, FR-21, FR-22 (L1–L4) | Bảng ánh xạ phím, toạ độ chuẩn hoá + DPI | Unit host-core |
-| FR-23 | Observer bị chặn ở server và Host | E2E WS + unit host-core |
-| NFR-05, NFR-06 | Rate limit, payload lỗi/quá lớn | E2E |
-| NFR-07 | Hai instance server dùng chung Redis adapter | E2E |
-| NFR-08 | Cấu hình bảo mật Electron | Unit + Host smoke |
-| NFR-10 | Log không chứa OTP/token | Integration |
-| NFR-01…03 | fps, độ trễ, băng thông | Performance (benchmark.md) |
+| FR-01, FR-08 | Create session, expire after WAITING_TTL | Unit + E2E |
+| FR-03, FR-03a | Join correct/wrong, lock after 5 attempts | Unit + E2E |
+| FR-04, FR-05, D1, D2 | Approve/reject, OTP consumed on join request, 60s timeout | Unit + E2E WS |
+| FR-09, I1 | Two concurrent Join Requests, only one succeeds | Integration |
+| FR-09a | Warning 5 minutes prior, expire after 2 hours | Unit + Integration scheduler |
+| FR-11 | Fallback when ICE fails | UI e2e (block ICE via configuration) |
+| FR-20, FR-21, FR-22 (L1–L4) | Key mapping table, normalized coordinates + DPI | Unit host-core |
+| FR-23 | Observer blocked at server and Host | E2E WS + unit host-core |
+| NFR-05, NFR-06 | Rate limits, invalid/oversized payloads | E2E |
+| NFR-07 | Two server instances sharing Redis adapter | E2E |
+| NFR-08 | Electron security configuration | Unit + Host smoke |
+| NFR-10 | Logs contain no OTP/tokens | Integration |
+| NFR-01…03 | fps, latency, bandwidth | Performance (benchmark.md) |
 
-Ma trận đầy đủ được duy trì dưới dạng bảng trong file này khi implement.
+The full matrix is maintained as a table in this file as implementation progresses.
 
 ## 7. Coverage & CI
 
-| Gói | Ngưỡng (lines/branches) |
+| Package | Threshold (lines/branches) |
 |---|---|
 | `apps/server/src/*/domain` | ≥ 90% / ≥ 90% |
 | `apps/server/src/*/application` | ≥ 85% / ≥ 80% |
 | `packages/protocol`, `packages/host-core` | ≥ 90% / ≥ 85% |
-| Còn lại | Không đặt ngưỡng; dựa vào e2e |
+| Remaining | No threshold set; rely on e2e |
 
-Coverage là cổng tối thiểu, không phải mục tiêu: một test không có assert vẫn tăng coverage.
+Coverage is a minimum quality gate, not a goal: a test with no assertions still increases coverage.
 
-**Pipeline GitHub Actions:**
+**GitHub Actions Pipeline:**
 ```mermaid
 flowchart LR
     A[install + cache pnpm] --> B[lint + typecheck]
@@ -116,24 +116,24 @@ flowchart LR
     E --> F[UI e2e Playwright]
     F --> G[build artifacts]
 ```
-Turborepo chỉ chạy lại các gói bị ảnh hưởng bởi thay đổi.
+Turborepo re-runs tasks only for packages affected by a change.
 
-## 8. Checklist kiểm thử thủ công (trước release)
+## 8. Manual testing checklist (pre-release)
 
-- [ ] Hai máy cùng LAN: WebRTC kết nối, chế độ hiển thị `webrtc`.
-- [ ] Hai mạng khác nhau (một máy dùng 4G): kết nối qua TURN.
-- [ ] Chặn UDP trên máy Viewer: tự chuyển `relay` trong ≤ 10 giây.
-- [ ] Host Windows scale 125% và 150%: click đúng vị trí ở bốn góc màn hình.
-- [ ] Gõ tiếng Anh, số, ký tự đặc biệt, tổ hợp Ctrl+C/Ctrl+V, Alt+Tab, mũi tên, F1–F12.
-- [ ] Đổi sang Observer giữa chừng: input bị chặn ngay.
-- [ ] Phím tắt thu hồi khẩn cấp hoạt động.
-- [ ] Rút mạng Viewer 10 giây rồi cắm lại: phiên tiếp tục; quá 15 giây: phiên kết thúc.
-- [ ] Phiên hết hạn đúng 2 giờ (chạy với `SESSION_POLICY_MAX_ACTIVE` rút gọn).
+- [ ] Two machines on same LAN: WebRTC connects, display mode shows `webrtc`.
+- [ ] Two different networks (one machine on 4G): connects via TURN.
+- [ ] Block UDP on Viewer machine: automatically switches to `relay` in ≤ 10 seconds.
+- [ ] Host Windows display scale 125% and 150%: click hits accurate coordinates in all four screen corners.
+- [ ] Type English characters, numbers, special symbols, shortcuts Ctrl+C/Ctrl+V, Alt+Tab, arrow keys, F1–F12.
+- [ ] Switch to Observer mid-session: input blocked immediately.
+- [ ] Emergency revoke shortcut works.
+- [ ] Unplug Viewer network for 10 seconds then reconnect: session resumes; exceeding 15 seconds: session terminates.
+- [ ] Session expires at exactly 2 hours (run with shortened `SESSION_POLICY_MAX_ACTIVE`).
 
-## 9. Definition of Done cho một PR
+## 9. Definition of Done for a PR
 
-- [ ] Test được viết trước hoặc cùng lúc với code; CI xanh.
-- [ ] Không giảm coverage dưới ngưỡng của gói liên quan.
-- [ ] Payload mới/đổi đã có trong `packages/protocol` và cập nhật `04-protocol.md`.
-- [ ] Thiết kế thay đổi thì cập nhật LLD hoặc thêm/sửa ADR.
-- [ ] Tự review theo checklist: đặt tên theo ubiquitous language, không log dữ liệu nhạy cảm, lỗi được ánh xạ đúng mã.
+- [ ] Tests written before or alongside code; CI green.
+- [ ] Coverage does not drop below the thresholds of the relevant package.
+- [ ] New/changed payloads added to `packages/protocol` and documented in `04-protocol.md`.
+- [ ] Design changes reflected in LLD updates or new/edited ADR.
+- [ ] Self-review against checklist: ubiquitous language in naming, no sensitive data logged, errors mapped to proper codes.

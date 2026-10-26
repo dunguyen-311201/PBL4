@@ -1,28 +1,28 @@
-# ADR-005 — Redis cho trạng thái phiên, PostgreSQL chỉ cho audit
+# ADR-005 — Redis for session state, PostgreSQL for audit only
 
 | | |
 |---|---|
-| Trạng thái | Accepted |
-| Ngày | 2026-10-23 |
-| Liên quan | NFR-07, FR-30, 02-domain-model §5–6, 03-lld/session-access §7–8 |
+| Status | Accepted |
+| Date | 2026-10-23 |
+| Related | NFR-07, FR-30, 02-domain-model §5–6, 03-lld/session-access §7–8 |
 
 ## Context
-Phiên sống ngắn (≤ 2h10m), cần TTL, đọc ở mỗi lệnh WS, và phải nhất quán khi chạy nhiều instance server. Socket.IO nhiều instance cần một kênh chia sẻ để emit tới room. Audit cần lưu lâu dài và truy vấn được.
+Sessions are short-lived (≤ 2h10m), require TTL, read on every WS command, and must remain consistent across multiple server instances. Multi-instance Socket.IO needs a shared channel to emit to rooms. Audit needs durable storage and queryability.
 
 ## Decision
-- **Redis** lưu aggregate `RemoteSession` (JSON + `version`), ánh xạ mã → phiên, hàng đợi mốc thời gian (sorted set), bộ đếm rate limit, và làm **Socket.IO Redis adapter**. Ghi bằng Lua script có kiểm tra version (optimistic concurrency).
-- **PostgreSQL** chỉ lưu audit log dạng append-only, được ghi bởi subscriber của domain event.
-- Event được publish trong process (`EventEmitter2`) **sau khi** lưu Redis thành công.
+- **Redis** stores the `RemoteSession` aggregate (JSON + `version`), code-to-session mapping, deadline queues (sorted set), rate limit counters, and serves as the **Socket.IO Redis adapter**. Writes execute via Lua script with version check (optimistic concurrency).
+- **PostgreSQL** stores only the append-only audit log, written by the domain event subscriber.
+- Events are published in-process (`EventEmitter2`) **after** successful Redis save.
 
 ## Alternatives
-| Phương án | Ưu | Nhược | Lý do loại |
+| Alternative | Pros | Cons | Why rejected |
 |---|---|---|---|
-| PostgreSQL cho cả trạng thái phiên (row lock) | Một nguồn dữ liệu, có transaction | Không có TTL tự nhiên; tải ghi/đọc nhiều cho dữ liệu ngắn hạn; vẫn cần Redis cho adapter | Thêm phức tạp không cần thiết |
-| Bộ nhớ trong process + sticky session | Nhanh, đơn giản | Mất trạng thái khi restart; không chạy nhiều instance an toàn | Vi phạm NFR-07 |
-| Redis lock (Redlock) thay cho optimistic concurrency | Quen thuộc | Lock có thời hạn, dễ sai khi GC pause; xung đột thực tế rất hiếm | Optimistic đơn giản và đủ |
-| Outbox pattern cho event | Không mất event | Cần bảng outbox + worker | Hoãn: chấp nhận rủi ro mất event audit trong v1 |
+| PostgreSQL for both session state (row lock) and audit | Single data source, transactions | No natural TTL; high read/write load for short-lived data; still needs Redis for adapter | Adds unnecessary complexity |
+| In-process memory + sticky session | Fast, simple | State lost on restart; cannot run multiple instances safely | Violates NFR-07 |
+| Redis lock (Redlock) instead of optimistic concurrency | Familiar | Locks are time-limited (leases), easy to get wrong under GC pauses; actual conflicts are very rare | Optimistic is simple and sufficient |
+| Outbox pattern for events | No lost events | Needs outbox table + worker | Deferred: accept risk of losing audit events in v1 |
 
 ## Consequences
-- Tích cực: TTL và nguyên tử có sẵn; scale ngang chỉ cần thêm instance; tách rõ dữ liệu nóng (Redis) và lịch sử (Postgres).
-- Tiêu cực: Redis là điểm phụ thuộc chính (mất Redis = mất mọi phiên đang chạy, chấp nhận cho v1); hai kho dữ liệu cần vận hành.
-- Việc phải làm: integration test cho Lua script và scheduler giành quyền bằng `ZREM`; ghi nhận outbox trong "What I'd do next".
+- Positive: built-in TTL and atomicity; horizontal scaling requires only adding instances; clearly separates hot data (Redis) and history (Postgres).
+- Negative: Redis is a single point of failure (losing Redis = losing all running sessions, accepted for v1); two datastores to operate.
+- Follow-up actions: integration tests for Lua script and the scheduler claiming deadlines via `ZREM`; record outbox in "What I'd do next".

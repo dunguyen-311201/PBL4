@@ -1,13 +1,13 @@
 # Architecture Decision Records
 
-| ADR | Quyết định | Trạng thái |
+| ADR | Decision | Status |
 |---|---|---|
-| [ADR-001](ADR-001-rewrite-instead-of-patch.md) | Viết lại hệ thống thay vì vá bản 2021 | Accepted |
-| [ADR-002](ADR-002-webrtc-for-media.md) | WebRTC cho hình ảnh và input, Socket.IO chỉ làm signaling | Accepted |
-| [ADR-003](ADR-003-relay-fallback.md) | Giữ relay JPEG qua Socket.IO làm phương án dự phòng | Accepted |
-| [ADR-004](ADR-004-session-code-otp-approval.md) | Mã phiên + OTP + Host duyệt + JWT ngắn hạn | Accepted |
-| [ADR-005](ADR-005-redis-state-postgres-audit.md) | Redis cho trạng thái phiên, PostgreSQL chỉ cho audit | Accepted |
-| [ADR-006](ADR-006-clean-architecture-selective-ddd.md) | Clean architecture, DDD chỉ ở Session & Access | Accepted |
-| [ADR-007](ADR-007-monorepo-shared-protocol.md) | Monorepo pnpm + Turborepo với package `protocol` dùng chung | Accepted |
+| [ADR-001](ADR-001-rewrite-instead-of-patch.md) | Rewrite the system instead of patching the 2021 version | Accepted |
+| [ADR-002](ADR-002-webrtc-for-media.md) | WebRTC for video and input, Socket.IO for signaling only | Accepted |
+| [ADR-003](ADR-003-relay-fallback.md) | Retain JPEG relay over Socket.IO as fallback | Accepted |
+| [ADR-004](ADR-004-session-code-otp-approval.md) | Session code + OTP + host approval + short-lived JWT | Accepted |
+| [ADR-005](ADR-005-redis-state-postgres-audit.md) | Redis for session state, PostgreSQL for audit only | Accepted |
+| [ADR-006](ADR-006-clean-architecture-selective-ddd.md) | Clean architecture, DDD for Session & Access only | Accepted |
+| [ADR-007](ADR-007-monorepo-shared-protocol.md) | pnpm + Turborepo monorepo with a shared `protocol` package | Accepted |
 
-Mẫu: [0000-template.md](0000-template.md). Khi đổi một quyết định, không sửa ADR cũ — tạo ADR mới và đánh dấu ADR cũ là `Superseded by ADR-XXX`.
+Template: [0000-template.md](0000-template.md). When changing a decision, do not edit the old ADR — create a new ADR and mark the old one as `Superseded by ADR-XXX`.

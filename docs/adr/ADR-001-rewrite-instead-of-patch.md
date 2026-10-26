@@ -1,30 +1,30 @@
-# ADR-001 — Viết lại hệ thống thay vì vá bản 2021
+# ADR-001 — Rewrite the system instead of patching the 2021 version
 
 | | |
 |---|---|
-| Trạng thái | Accepted |
-| Ngày | 2026-10-23 |
-| Liên quan | [00-requirements.md §8](../00-requirements.md), ADR-002, ADR-004, ADR-006 |
+| Status | Accepted |
+| Date | 2026-10-23 |
+| Related | [00-requirements.md §8](../00-requirements.md), ADR-002, ADR-004, ADR-006 |
 
 ## Context
-Bản 2021 có 14 lỗi đã ghi nhận (L1–L14), trong đó nhiều lỗi nằm ở chính mô hình chứ không phải chi tiết code:
-- room là một UUID cố định, không có xác thực hay bước duyệt của Host;
-- toàn bộ hình ảnh đi qua server dưới dạng PNG base64, không có backpressure;
-- server phải mở port public, không vượt được NAT;
-- Electron chạy với `nodeIntegration: true`.
+The 2021 version has 14 recorded bugs (L1–L14), many of which reside in the architectural model itself rather than implementation details:
+- room is a static UUID, without authentication or host approval step;
+- all images traverse the server as base64 PNGs, without backpressure;
+- server must expose public ports, cannot traverse NAT;
+- Electron runs with `nodeIntegration: true`.
 
-Mục tiêu mới (WebRTC, phiên có xác thực, chạy nhiều instance, TDD) thay đổi gần như mọi thành phần.
+The new goals (WebRTC, authenticated sessions, multi-instance support, TDD) alter virtually every component.
 
 ## Decision
-Đóng băng bản 2021 tại tag `v0-legacy-2021` (thư mục `legacy/`), không sửa thêm. Xây hệ thống mới trong monorepo TypeScript theo thiết kế ở `docs/`. Các lỗi của bản cũ trở thành yêu cầu và test case của bản mới.
+Freeze the 2021 version at tag `v0-legacy-2021` (directory `legacy/`), with no further edits. Build the new system in a TypeScript monorepo according to the design in `docs/`. Bugs from the legacy version become requirements and test cases for the new version.
 
 ## Alternatives
-| Phương án | Ưu | Nhược | Lý do loại |
+| Alternative | Pros | Cons | Why rejected |
 |---|---|---|---|
-| Vá dần bản 2021 | Có kết quả chạy được sớm | Phần lớn code vá sẽ bị thay khi chuyển WebRTC và thêm xác thực; JS thuần, không test, khó áp dụng TDD | Công sức không tái sử dụng được |
-| Vá tối thiểu rồi mới viết lại | Có demo tạm | Tốn 1 tuần cho code sẽ bỏ đi | Đã có bộ thiết kế để trình bày khi phỏng vấn trong thời gian chờ |
+| Incrementally patch the 2021 version | Runnable results sooner | Most patched code will be replaced when moving to WebRTC and adding authentication; pure JS, no tests, hard to apply TDD | Non-reusable effort |
+| Minimal patching before rewriting | Temporary demo available | Spends 1 week on code that will be discarded | Design documentation is already available to present during interviews in the meantime |
 
 ## Consequences
-- Tích cực: thiết kế sạch từ đầu; mọi phần đều có test; lịch sử repo cho thấy rõ quá trình từ bản cũ sang bản mới.
-- Tiêu cực: khoảng 2 tuần đầu chưa có bản chạy được mới; bản legacy vẫn còn lỗi.
-- Việc phải làm theo: README ghi rõ trạng thái "redesign in progress"; đo baseline bản legacy trước khi đóng băng để có số so sánh.
+- Positive: clean design from the start; every part covered by tests; repo history clearly shows the progression from the legacy version to the redesign.
+- Negative: no runnable new version for the first ~2 weeks; legacy version remains buggy.
+- Follow-up actions: README clearly states the status "redesign in progress"; measure baseline of the legacy version before freezing to have comparison figures.

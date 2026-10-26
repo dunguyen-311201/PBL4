@@ -1,29 +1,29 @@
-# ADR-004 — Mã phiên + OTP + Host duyệt + JWT ngắn hạn
+# ADR-004 — Session code + OTP + host approval + short-lived JWT
 
 | | |
 |---|---|
-| Trạng thái | Accepted |
-| Ngày | 2026-10-23 |
-| Liên quan | FR-01…FR-09b, NFR-05, 02-domain-model D1/D2, 05-security S1–S4 |
+| Status | Accepted |
+| Date | 2026-10-23 |
+| Related | FR-01…FR-09b, NFR-05, 02-domain-model D1/D2, 05-security S1–S4 |
 
 ## Context
-Bản 2021 dùng một UUID làm room: ai biết UUID là xem và điều khiển được, UUID không đổi giữa các phiên, Host không được hỏi ý kiến. Hệ thống không có tài khoản người dùng (ngoài phạm vi v1).
+The 2021 version used a UUID as the room: anyone who knew the UUID could view and control, the UUID never changed between sessions, and the Host was not consulted. The system has no user accounts (out of scope for v1).
 
 ## Decision
-- Host nhận **Session Code 9 chữ số** và **OTP 6 chữ số** (dùng một lần, hết hạn 10 phút, lưu dạng hash argon2id).
-- Viewer gửi mã + OTP; nếu đúng, OTP bị tiêu thụ ngay và **Host phải duyệt** trong 60 giây.
-- Khoá phiên sau 5 lần OTP sai; rate limit theo IP.
-- Danh tính khi kết nối WS là **JWT ngắn hạn** theo vai trò (`host`, `pending`, `viewer`); quyền thực tế (Controller/Observer, phiên còn sống) được kiểm tra với Redis ở mỗi lệnh.
+- Host receives a **9-digit Session Code** and a **6-digit OTP** (single-use, expires in 10 minutes, stored as argon2id hash).
+- Viewer sends code + OTP; if correct, the OTP is consumed immediately and **the Host must approve** within 60 seconds.
+- Lock the session after 5 wrong OTP attempts; rate limit by IP.
+- Identity upon WS connection is a **short-lived JWT** by role (`host`, `pending`, `viewer`); actual permissions (Controller/Observer, session still alive) are checked against Redis on every command.
 
 ## Alternatives
-| Phương án | Ưu | Nhược | Lý do loại |
+| Alternative | Pros | Cons | Why rejected |
 |---|---|---|---|
-| Link chứa UUID (như 2021) | Đơn giản | Lộ link là mất quyền; không có bước duyệt | Lỗi L11 |
-| Tài khoản + đăng nhập | Định danh rõ, hỗ trợ unattended | Thêm cả một hệ thống identity | Ngoài phạm vi v1 (Q2) |
-| OTP chữ + số | Không gian lớn hơn | Khó đọc qua điện thoại | Đã chọn chỉ số (Q1); bù bằng khoá phiên + Host duyệt |
-| Session cookie phía server thay cho JWT | Thu hồi dễ | Cần lookup mỗi request; cookie với WS cross-origin phức tạp hơn | JWT + kiểm tra trạng thái phiên đã cho phép thu hồi tức thì |
+| Link containing UUID (like 2021) | Simple | Leaking link yields full control; no approval step | Bug L11 |
+| Accounts + login | Clear identity, supports unattended | Adds an entire identity system | Out of scope for v1 (Q2) |
+| Alphanumeric OTP | Larger space | Hard to dictate over the phone | Selected digits-only (Q1); compensated by session locking + host approval |
+| Server-side session cookie instead of JWT | Easy revocation | Needs lookup every request; cookies with cross-origin WS are more complex | JWT + checking session state already allows instant revocation |
 
 ## Consequences
-- Tích cực: an toàn nhiều lớp mà không cần tài khoản; quen thuộc với người dùng (giống TeamViewer/AnyDesk); thu hồi quyền có hiệu lực ngay.
-- Tiêu cực: mỗi lệnh WS cần đọc Redis (chấp nhận được, Redis nhanh); Host phải có mặt.
-- Việc phải làm: chống timing attack khi mã không tồn tại; cùng một lỗi 401 cho mọi thất bại join; e2e test bảo mật (05 §5).
+- Positive: multi-layered security without requiring accounts; familiar to users (like TeamViewer/AnyDesk); permission revocation takes effect immediately.
+- Negative: every WS command needs to read Redis (acceptable, Redis is fast); Host must be present.
+- Follow-up actions: guard against timing attack when code does not exist; same 401 error for all join failures; security e2e tests (05 §5).
